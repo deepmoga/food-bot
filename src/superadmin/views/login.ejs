@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Super Admin Login</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#1a1a2e;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.box{background:#fff;border-radius:16px;padding:36px;width:100%;max-width:380px}
+h1{font-size:22px;font-weight:700;text-align:center;margin-bottom:4px}
+p{text-align:center;color:#6b7280;font-size:13px;margin-bottom:24px}
+.brand{text-align:center;font-size:36px;margin-bottom:12px}
+.form-group{margin-bottom:14px}
+label{display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px}
+input{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-family:inherit;font-size:14px;outline:none}
+input:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.1)}
+.btn{width:100%;padding:11px;background:#6366f1;color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer}
+.btn:hover{background:#4f46e5}
+.error{background:#fee2e2;color:#991b1b;padding:10px;border-radius:8px;font-size:13px;margin-bottom:14px}
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="brand">👑</div>
+  <h1>Super Admin</h1>
+  <p>Food Bot Multi-Vendor Platform</p>
+  <% if(error){ %><div class="error"><%= error %></div><% } %>
+  <form method="POST" action="/superadmin/login">
+    <div class="form-group"><label>Email</label><input type="email" name="email" required autofocus></div>
+    <div class="form-group"><label>Password</label><input type="password" name="password" required></div>
+    <button type="submit" class="btn">Sign In →</button>
+  </form>
+</div>
+</body>
+</html>

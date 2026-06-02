@@ -1,0 +1,184 @@
+<%
+const page = 'menu';
+const title = 'Menu Management';
+const body = `
+<div class="page-header">
+  <h1>🍽️ Menu Management</h1>
+  <button class="btn btn-primary" onclick="document.getElementById('addCatModal').classList.add('open')">+ Add Category</button>
+</div>
+
+${categories.map(cat => {
+  const catItems = items.filter(i => i.category_id === cat.id);
+  return `
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div>
+        <strong style="font-size:16px">${cat.emoji||''} ${cat.name}</strong>
+        <span class="badge ${cat.is_active?'badge-ready':'badge-cancelled'}" style="margin-left:8px">${cat.is_active?'Active':'Inactive'}</span>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-ghost btn-sm" onclick="openEditCat(${cat.id},'${cat.name.replace(/'/g,"\\'")}','${cat.emoji||''}',${cat.sort_order})">✏️ Edit</button>
+        <button class="btn btn-ghost btn-sm" onclick="toggleCat(${cat.id})">${cat.is_active?'🔴 Disable':'🟢 Enable'}</button>
+        <button class="btn btn-danger btn-sm" onclick="delCat(${cat.id})">🗑️</button>
+        <button class="btn btn-primary btn-sm" onclick="openAddItem(${cat.id})">+ Item</button>
+      </div>
+    </div>
+    <table>
+      <thead><tr><th>Item</th><th>Price</th><th>Status</th><th>Addons</th><th>Actions</th></tr></thead>
+      <tbody>
+        ${catItems.length ? catItems.map(item => {
+          const itemAddons = addons.filter(a => a.item_id === item.id);
+          return `<tr>
+            <td><strong>${item.name}</strong>${item.description?`<br><span style="font-size:11px;color:#6b7280">${item.description}</span>`:''}</td>
+            <td>₹${item.price}</td>
+            <td><span class="badge ${item.is_available?'badge-ready':'badge-cancelled'}">${item.is_available?'Available':'Unavailable'}</span></td>
+            <td style="font-size:12px">${itemAddons.map(a=>`${a.name}${a.price>0?` +₹${a.price}`:''}`).join('<br>')||'—'}
+              <br><button class="btn btn-ghost btn-sm" onclick="openAddAddon(${item.id},'${item.name.replace(/'/g,"\\'")}')">+ Addon</button></td>
+            <td>
+              <button class="btn btn-ghost btn-sm" onclick="openEditItem(${item.id},${cat.id},'${item.name.replace(/'/g,"\\'")}','${(item.description||'').replace(/'/g,"\\'")}',${item.price})">✏️</button>
+              <button class="btn btn-ghost btn-sm" onclick="toggleItem(${item.id})">${item.is_available?'🔴':'🟢'}</button>
+              <button class="btn btn-danger btn-sm" onclick="delItem(${item.id})">🗑️</button>
+            </td>
+          </tr>`;
+        }).join('') : '<tr><td colspan="5" style="text-align:center;color:#6b7280;padding:16px">No items in this category</td></tr>'}
+      </tbody>
+    </table>
+  </div>`;
+}).join('')}
+
+${categories.length===0?'<div class="card" style="text-align:center;padding:32px;color:#6b7280">No categories yet. Add your first category!</div>':''}
+
+<!-- Add Category Modal -->
+<div class="modal-overlay" id="addCatModal">
+  <div class="modal">
+    <button class="close" onclick="document.getElementById('addCatModal').classList.remove('open')">×</button>
+    <h2>Add Category</h2>
+    <form method="POST" action="/admin/menu/category">
+      <input type="hidden" name="action" value="add">
+      <div class="form-group"><label>Name</label><input name="name" class="form-control" required placeholder="e.g. Burgers"></div>
+      <div class="form-group"><label>Emoji</label><input name="emoji" class="form-control" placeholder="🍔" maxlength="5"></div>
+      <div class="form-group"><label>Sort Order</label><input name="sort_order" type="number" class="form-control" value="0"></div>
+      <button type="submit" class="btn btn-primary" style="width:100%">Add Category</button>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Category Modal -->
+<div class="modal-overlay" id="editCatModal">
+  <div class="modal">
+    <button class="close" onclick="document.getElementById('editCatModal').classList.remove('open')">×</button>
+    <h2>Edit Category</h2>
+    <form method="POST" action="/admin/menu/category">
+      <input type="hidden" name="action" value="edit">
+      <input type="hidden" name="id" id="editCatId">
+      <div class="form-group"><label>Name</label><input name="name" id="editCatName" class="form-control" required></div>
+      <div class="form-group"><label>Emoji</label><input name="emoji" id="editCatEmoji" class="form-control" maxlength="5"></div>
+      <div class="form-group"><label>Sort Order</label><input name="sort_order" id="editCatSort" type="number" class="form-control"></div>
+      <button type="submit" class="btn btn-primary" style="width:100%">Save Changes</button>
+    </form>
+  </div>
+</div>
+
+<!-- Add Item Modal -->
+<div class="modal-overlay" id="addItemModal">
+  <div class="modal">
+    <button class="close" onclick="document.getElementById('addItemModal').classList.remove('open')">×</button>
+    <h2>Add Menu Item</h2>
+    <form method="POST" action="/admin/menu/item">
+      <input type="hidden" name="action" value="add">
+      <input type="hidden" name="category_id" id="addItemCatId">
+      <div class="form-group"><label>Name</label><input name="name" class="form-control" required placeholder="Item name"></div>
+      <div class="form-group"><label>Description</label><input name="description" class="form-control" placeholder="Optional description"></div>
+      <div class="form-group"><label>Price (₹)</label><input name="price" type="number" step="0.01" min="0" class="form-control" required></div>
+      <button type="submit" class="btn btn-primary" style="width:100%">Add Item</button>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Item Modal -->
+<div class="modal-overlay" id="editItemModal">
+  <div class="modal">
+    <button class="close" onclick="document.getElementById('editItemModal').classList.remove('open')">×</button>
+    <h2>Edit Item</h2>
+    <form method="POST" action="/admin/menu/item">
+      <input type="hidden" name="action" value="edit">
+      <input type="hidden" name="id" id="editItemId">
+      <div class="form-group"><label>Category</label>
+        <select name="category_id" id="editItemCatId" class="form-control">
+          ${categories.map(c=>`<option value="${c.id}">${c.emoji||''} ${c.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group"><label>Name</label><input name="name" id="editItemName" class="form-control" required></div>
+      <div class="form-group"><label>Description</label><input name="description" id="editItemDesc" class="form-control"></div>
+      <div class="form-group"><label>Price (₹)</label><input name="price" id="editItemPrice" type="number" step="0.01" min="0" class="form-control" required></div>
+      <button type="submit" class="btn btn-primary" style="width:100%">Save Changes</button>
+    </form>
+  </div>
+</div>
+
+<!-- Add Addon Modal -->
+<div class="modal-overlay" id="addAddonModal">
+  <div class="modal">
+    <button class="close" onclick="document.getElementById('addAddonModal').classList.remove('open')">×</button>
+    <h2 id="addAddonTitle">Add Addon</h2>
+    <form method="POST" action="/admin/menu/addon">
+      <input type="hidden" name="action" value="add">
+      <input type="hidden" name="item_id" id="addAddonItemId">
+      <div class="form-group"><label>Addon Name</label><input name="name" class="form-control" required placeholder="e.g. Extra Cheese"></div>
+      <div class="form-group"><label>Extra Price (₹)</label><input name="price" type="number" step="0.01" min="0" class="form-control" value="0"></div>
+      <button type="submit" class="btn btn-primary" style="width:100%">Add Addon</button>
+    </form>
+  </div>
+</div>
+
+<script>
+function openEditCat(id, name, emoji, sort) {
+  document.getElementById('editCatId').value = id;
+  document.getElementById('editCatName').value = name;
+  document.getElementById('editCatEmoji').value = emoji;
+  document.getElementById('editCatSort').value = sort;
+  document.getElementById('editCatModal').classList.add('open');
+}
+function openAddItem(catId) {
+  document.getElementById('addItemCatId').value = catId;
+  document.getElementById('addItemModal').classList.add('open');
+}
+function openEditItem(id, catId, name, desc, price) {
+  document.getElementById('editItemId').value = id;
+  document.getElementById('editItemCatId').value = catId;
+  document.getElementById('editItemName').value = name;
+  document.getElementById('editItemDesc').value = desc;
+  document.getElementById('editItemPrice').value = price;
+  document.getElementById('editItemModal').classList.add('open');
+}
+function openAddAddon(itemId, itemName) {
+  document.getElementById('addAddonItemId').value = itemId;
+  document.getElementById('addAddonTitle').textContent = 'Add Addon — ' + itemName;
+  document.getElementById('addAddonModal').classList.add('open');
+}
+function toggleCat(id) {
+  const f = document.createElement('form'); f.method='POST'; f.action='/admin/menu/category';
+  f.innerHTML = '<input name="action" value="toggle"><input name="id" value="'+id+'">';
+  document.body.appendChild(f); f.submit();
+}
+function toggleItem(id) {
+  const f = document.createElement('form'); f.method='POST'; f.action='/admin/menu/item';
+  f.innerHTML = '<input name="action" value="toggle"><input name="id" value="'+id+'">';
+  document.body.appendChild(f); f.submit();
+}
+function delCat(id) {
+  if(!confirm('Delete this category and all its items?')) return;
+  const f = document.createElement('form'); f.method='POST'; f.action='/admin/menu/category';
+  f.innerHTML = '<input name="action" value="delete"><input name="id" value="'+id+'">';
+  document.body.appendChild(f); f.submit();
+}
+function delItem(id) {
+  if(!confirm('Delete this item?')) return;
+  const f = document.createElement('form'); f.method='POST'; f.action='/admin/menu/item';
+  f.innerHTML = '<input name="action" value="delete"><input name="id" value="'+id+'">';
+  document.body.appendChild(f); f.submit();
+}
+</script>
+`;
+%>
+<%- include('layout', {body, page, title, features}) %>

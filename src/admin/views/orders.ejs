@@ -1,0 +1,208 @@
+<%
+const page = 'orders';
+const title = 'Orders';
+
+function statusBadge(s) {
+  const map = {waiting:'warning',confirmed:'confirmed',preparing:'preparing',ready:'ready',delivered:'delivered',cancelled:'cancelled'};
+  return `<span class="badge badge-${s}">${s.charAt(0).toUpperCase()+s.slice(1)}</span>`;
+}
+function payBadge(s) {
+  const m = {paid:'paid',cod_pending:'cod',pending:'pending'};
+  return `<span class="badge badge-${m[s]||'pending'}">${s.replace('_',' ')}</span>`;
+}
+%>
+<%
+const body = `
+<div class="page-header">
+  <h1>📦 Orders</h1>
+  <div id="statsBar" style="font-size:13px;color:#6b7280"></div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card"><div class="label">Today Orders</div><div class="value" id="s-today">${stats.today_orders||0}</div></div>
+  <div class="stat-card"><div class="label">Pending</div><div class="value" id="s-pending" style="color:var(--amber)">${stats.pending||0}</div></div>
+  <div class="stat-card"><div class="label">Today Revenue</div><div class="value" id="s-trev">₹${Number(stats.today_revenue||0).toFixed(0)}</div></div>
+  <div class="stat-card"><div class="label">Total Revenue</div><div class="value" id="s-rev">₹${Number(stats.total_revenue||0).toFixed(0)}</div></div>
+</div>
+
+<div class="tabs">
+  <a href="/admin?filter=today" class="tab ${filter==='today'?'active':''}">🗓️ Aaj</a>
+  <a href="/admin?filter=pending" class="tab ${filter==='pending'?'active':''}">⏳ Pending</a>
+  <a href="/admin?filter=cod" class="tab ${filter==='cod'?'active':''}">💵 COD</a>
+  <a href="/admin?filter=paid" class="tab ${filter==='paid'?'active':''}">✅ Paid</a>
+  <a href="/admin?filter=all" class="tab ${filter==='all'?'active':''}">📋 All</a>
+</div>
+
+<form class="search-box" method="GET">
+  <input name="search" value="${search||''}" placeholder="Search order # or customer name..." onchange="this.form.submit()">
+  <input type="hidden" name="filter" value="${filter}">
+</form>
+
+<div class="card" style="padding:0;overflow-x:auto">
+<table>
+<thead>
+  <tr>
+    <th>Order #</th>
+    <th>Customer</th>
+    <th>Items</th>
+    <th>Total</th>
+    <th>Payment</th>
+    <th>Status</th>
+    ${features.delivery_boys ? '<th>Delivery Boy</th>' : ''}
+    <th>Time</th>
+    <th>Actions</th>
+  </tr>
+</thead>
+<tbody>
+${orders.map(o => {
+  const items = typeof o.items === 'string' ? JSON.parse(o.items) : o.items;
+  const itemList = items.map(i => `${i.name} x${i.qty}`).join('<br>');
+  const mapsBtn = o.customer_lat ? `<button class="btn btn-ghost btn-sm" onclick="showMap(${o.customer_lat},${o.customer_lng})" title="Map">🗺️</button>` : '';
+  const codBtn = o.payment_method==='cod' && o.payment_status!=='paid' ? `<button class="btn btn-sm" style="background:var(--green);color:#fff" onclick="markPaid(${o.id},this)">💰 Cash Mila</button>` : '';
+  const editBtn = `<button class="btn btn-ghost btn-sm" onclick="openEdit(${o.id},'${o.items.replace(/'/g,"\\'")}')">✏️</button>`;
+  const dbSelect = features.delivery_boys ? `
+    <select class="form-control" style="font-size:12px;padding:4px 8px" onchange="assignDelivery(${o.id},this.value,this)">
+      <option value="">-- Assign --</option>
+      ${deliveryBoys.map(b=>`<option value="${b.id}" ${o.delivery_boy_id==b.id?'selected':''}>${b.name}</option>`).join('')}
+    </select>` : '';
+
+  const statusSelect = `
+    <select class="form-control" style="font-size:12px;padding:4px 8px" onchange="updateStatus(${o.id},this.value,this)">
+      ${['waiting','confirmed','preparing','ready','delivered','cancelled'].map(s=>`<option value="${s}" ${o.order_status===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
+    </select>`;
+
+  return `<tr>
+    <td><strong>#${o.order_number}</strong><br><span style="font-size:11px;color:#6b7280">${o.payment_method==='cod'?'💵 COD':'💳 Online'}</span></td>
+    <td><strong>${o.customer_name||'-'}</strong><br><span style="font-size:11px;color:#6b7280">${o.customer_phone||o.phone}</span>${o.delivery_address?`<br><span style="font-size:11px;color:#6b7280">${o.delivery_address.substring(0,40)}</span>`:''}</td>
+    <td style="font-size:12px">${itemList}</td>
+    <td><strong>₹${o.total}</strong><br>${payBadge(o.payment_status)}</td>
+    <td>${o.payment_method==='cod'?'<span class="badge badge-cod">COD</span>':'<span class="badge badge-paid">Online</span>'}</td>
+    <td>${statusSelect}</td>
+    ${features.delivery_boys ? `<td>${dbSelect}</td>` : ''}
+    <td style="font-size:11px;color:#6b7280">${new Date(o.created_at).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</td>
+    <td>${codBtn} ${editBtn} ${mapsBtn}</td>
+  </tr>`;
+}).join('')}
+${orders.length===0?'<tr><td colspan="9" style="text-align:center;padding:32px;color:#6b7280">No orders found</td></tr>':''}
+</tbody>
+</table>
+</div>
+
+<!-- Map Modal -->
+<div class="modal-overlay" id="mapModal">
+  <div class="modal" style="max-width:600px">
+    <button class="close" onclick="document.getElementById('mapModal').classList.remove('open')">×</button>
+    <h2>🗺️ Customer Location</h2>
+    <iframe id="mapFrame" width="100%" height="400" style="border:0;border-radius:8px;margin-top:12px" allowfullscreen></iframe>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <button class="close" onclick="document.getElementById('editModal').classList.remove('open')">×</button>
+    <h2>✏️ Edit Order Items</h2>
+    <div id="editItems"></div>
+    <button class="btn btn-primary" onclick="saveEdit()" style="margin-top:16px;width:100%">Save Changes</button>
+  </div>
+</div>
+
+<!-- New Order Alert -->
+<div id="newOrderAlert" style="display:none;position:fixed;bottom:24px;right:24px;background:#fff;border:2px solid var(--green);border-radius:12px;padding:16px 20px;box-shadow:0 4px 20px rgba(0,0,0,.15);z-index:9999;min-width:260px">
+  <div style="font-weight:700;margin-bottom:8px">🔔 New Order!</div>
+  <div id="newOrderText" style="font-size:13px;color:#374151;margin-bottom:12px"></div>
+  <button class="btn btn-primary btn-sm" onclick="acceptOrder()">✅ View Orders</button>
+  <button class="btn btn-ghost btn-sm" onclick="document.getElementById('newOrderAlert').style.display='none'">Dismiss</button>
+</div>
+`;
+%>
+<%- include('layout', {body, page, title, features}) %>
+
+<script>
+let lastOrderId = 0;
+let currentEditOrderId = null;
+let currentEditItems = [];
+
+// Get initial last order id
+fetch('/admin/api/latest-order-id').then(r=>r.json()).then(d=>{ lastOrderId = d.id; });
+
+async function updateStatus(orderId, status, sel) {
+  sel.disabled = true;
+  const r = await fetch('/admin/api/update-status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({order_id:orderId,status})});
+  const d = await r.json();
+  sel.disabled = false;
+  if(!d.success) alert('Error updating status');
+}
+
+async function markPaid(orderId, btn) {
+  btn.disabled = true;
+  await fetch('/admin/api/mark-paid',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({order_id:orderId})});
+  btn.textContent = '✅ Paid';
+  btn.style.background = '#6b7280';
+}
+
+async function assignDelivery(orderId, boyId, sel) {
+  if(!boyId) return;
+  sel.disabled = true;
+  const r = await fetch('/admin/api/assign-delivery',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({order_id:orderId,delivery_boy_id:boyId})});
+  const d = await r.json();
+  sel.disabled = false;
+  if(d.success) sel.style.borderColor='var(--green)';
+  else alert('Error assigning delivery');
+}
+
+function showMap(lat, lng) {
+  document.getElementById('mapFrame').src = `https://maps.google.com/maps?q=${lat},${lng}&output=embed`;
+  document.getElementById('mapModal').classList.add('open');
+}
+
+function openEdit(orderId, itemsJson) {
+  currentEditOrderId = orderId;
+  currentEditItems = JSON.parse(itemsJson);
+  const container = document.getElementById('editItems');
+  container.innerHTML = currentEditItems.map((item,i) => `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;padding:10px;background:#f9fafb;border-radius:8px">
+      <div style="flex:1;font-size:14px;font-weight:500">${item.name}<br><span style="font-size:12px;color:#6b7280">₹${item.price} each</span></div>
+      <input type="number" min="0" value="${item.qty}" style="width:70px;padding:6px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;text-align:center" onchange="currentEditItems[${i}].qty=parseInt(this.value)||0">
+    </div>
+  `).join('');
+  document.getElementById('editModal').classList.add('open');
+}
+
+async function saveEdit() {
+  const items = currentEditItems.filter(i => i.qty > 0);
+  const r = await fetch('/admin/api/edit-order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({order_id:currentEditOrderId,items:JSON.stringify(items)})});
+  const d = await r.json();
+  if(d.success) { document.getElementById('editModal').classList.remove('open'); location.reload(); }
+  else alert('Error saving order');
+}
+
+function acceptOrder() { location.reload(); }
+
+// Poll for new orders every 10s
+setInterval(async () => {
+  const r = await fetch(`/admin/api/new-orders?since=${lastOrderId}`);
+  const orders = await r.json();
+  if(orders.length) {
+    lastOrderId = orders[0].id;
+    document.getElementById('newOrderText').innerHTML = orders.map(o=>`<strong>#${o.order_number}</strong> — ${o.customer_name} — ₹${o.total}`).join('<br>');
+    document.getElementById('newOrderAlert').style.display = 'block';
+    try { new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAA...').play(); } catch(e){}
+    if('Notification' in window && Notification.permission==='granted') {
+      new Notification('🔔 New Order!', {body: orders.map(o=>`#${o.order_number}`).join(', ')});
+    }
+  }
+}, 10000);
+
+// Stats refresh every 15s
+setInterval(async () => {
+  const d = await fetch('/admin/api/stats').then(r=>r.json());
+  document.getElementById('s-today').textContent = d.today_orders||0;
+  document.getElementById('s-pending').textContent = d.pending||0;
+  document.getElementById('s-trev').textContent = '₹'+(Number(d.today_revenue||0).toFixed(0));
+  document.getElementById('s-rev').textContent = '₹'+(Number(d.total_revenue||0).toFixed(0));
+}, 15000);
+
+// Request notification permission
+if('Notification' in window && Notification.permission==='default') Notification.requestPermission();
+</script>

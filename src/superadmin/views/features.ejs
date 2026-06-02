@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Features — <%= vendor.name %></title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#f3f4f6;color:#111}
+.top{background:#1a1a2e;color:#fff;padding:16px 24px;display:flex;align-items:center;justify-content:space-between}
+.top h1{font-size:18px;font-weight:700}
+.top a{color:#a5b4fc;text-decoration:none;font-size:13px;margin-left:16px}
+.main{padding:24px;max-width:700px;margin:0 auto}
+h2{font-size:20px;font-weight:700;margin-bottom:6px}
+p{color:#6b7280;font-size:13px;margin-bottom:24px}
+.card{background:#fff;border-radius:12px;border:1px solid #e5e7eb;padding:24px;margin-bottom:20px}
+.feature-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid #f3f4f6}
+.feature-row:last-child{border-bottom:none}
+.feature-label{font-size:15px;font-weight:500}
+.toggle{position:relative;display:inline-block;width:48px;height:26px}
+.toggle input{opacity:0;width:0;height:0}
+.toggle .slider{position:absolute;cursor:pointer;inset:0;background:#d1d5db;border-radius:26px;transition:.3s}
+.toggle .slider:before{content:'';position:absolute;width:20px;height:20px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s}
+.toggle input:checked+.slider{background:#1db954}
+.toggle input:checked+.slider:before{transform:translateX(22px)}
+.btn{display:inline-flex;align-items:center;padding:10px 20px;border-radius:8px;border:none;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;text-decoration:none}
+.btn-indigo{background:#6366f1;color:#fff;width:100%;justify-content:center}
+.alert{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px;background:#d1fae5;color:#065f46}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>👑 Super Admin</h1>
+  <div><a href="/superadmin/vendors">← Vendors</a><a href="/superadmin/logout">Logout</a></div>
+</div>
+<div class="main">
+  <h2>⚙️ Features — <%= vendor.name %></h2>
+  <p>Toggle features for this vendor. Changes take effect immediately.</p>
+
+  <% if(locals.query && locals.query.saved){ %><div class="alert">✅ Features saved!</div><% } %>
+
+  <form method="POST" action="/superadmin/vendors/<%= vendor.id %>/features">
+    <div class="card">
+      <% FEATURE_KEYS.forEach(key => { %>
+        <div class="feature-row">
+          <span class="feature-label"><%= FEATURE_LABELS[key] %></span>
+          <label class="toggle">
+            <input type="hidden" name="<%= key %>" value="0">
+            <input type="checkbox" name="<%= key %>" value="1" <%= featureMap[key] ? 'checked' : '' %>
+              onchange="this.previousElementSibling.disabled=this.checked">
+            <span class="slider"></span>
+          </label>
+        </div>
+      <% }) %>
+    </div>
+    <button type="submit" class="btn btn-indigo">💾 Save Features</button>
+  </form>
+</div>
+<script>
+// Fix: ensure hidden inputs work correctly for unchecked checkboxes
+document.querySelectorAll('.toggle input[type=checkbox]').forEach(cb => {
+  cb.addEventListener('change', function() {
+    this.previousElementSibling.disabled = this.checked;
+  });
+  // Initialize
+  cb.previousElementSibling.disabled = cb.checked;
+});
+</script>
+</body>
+</html>

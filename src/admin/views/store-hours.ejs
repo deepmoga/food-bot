@@ -1,0 +1,49 @@
+<%
+const page = 'storehours';
+const title = 'Store Hours';
+function s(key) { return settings[key] || ''; }
+const body = `
+<div class="page-header">
+  <h1>🕐 Store Hours</h1>
+</div>
+${locals.query && locals.query.saved ? '<div class="alert alert-success">✅ Saved!</div>' : ''}
+<form method="POST" action="/admin/store-hours">
+  <div class="card">
+    <h3 style="margin-bottom:16px;font-size:16px">🔴🟢 Manual Override</h3>
+    <div style="display:flex;align-items:center;gap:16px">
+      <label class="toggle">
+        <input type="checkbox" name="store_open" value="1" ${s('store_open')==='1'?'checked':''}>
+        <span class="slider"></span>
+      </label>
+      <span style="font-weight:600">${s('store_open')==='1'?'Store is OPEN':'Store is CLOSED'} (Manual Override)</span>
+    </div>
+    <p style="font-size:13px;color:#6b7280;margin-top:8px">When turned off, store will appear closed to customers regardless of schedule below.</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-bottom:16px;font-size:16px">📅 Weekly Schedule</h3>
+    <table>
+      <thead><tr><th>Day</th><th>Open?</th><th>Open Time</th><th>Close Time</th></tr></thead>
+      <tbody>
+      ${schedule.map(day => `
+        <tr>
+          <td><strong>${day.day_name}</strong></td>
+          <td>
+            <label class="toggle">
+              <input type="checkbox" name="days[${day.day_of_week}][is_open]" value="1" ${day.is_open?'checked':''}>
+              <span class="slider"></span>
+            </label>
+          </td>
+          <td><input type="time" name="days[${day.day_of_week}][open_time]" value="${day.open_time}" class="form-control" style="width:140px"></td>
+          <td><input type="time" name="days[${day.day_of_week}][close_time]" value="${day.close_time}" class="form-control" style="width:140px"></td>
+        </tr>
+      `).join('')}
+      </tbody>
+    </table>
+  </div>
+
+  <button type="submit" class="btn btn-primary" style="width:100%;padding:12px;font-size:15px">💾 Save Schedule</button>
+</form>
+`;
+%>
+<%- include('layout', {body, page, title, features, query: locals.query}) %>

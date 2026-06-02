@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vendors — Super Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#f3f4f6;color:#111}
+.top{background:#1a1a2e;color:#fff;padding:16px 24px;display:flex;align-items:center;justify-content:space-between}
+.top h1{font-size:18px;font-weight:700}
+.top a{color:#a5b4fc;text-decoration:none;font-size:13px;margin-left:16px}
+.main{padding:24px;max-width:1100px;margin:0 auto}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.page-header h2{font-size:20px;font-weight:700}
+.card{background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;margin-bottom:20px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 16px;background:#f9fafb;border-bottom:2px solid #e5e7eb;font-size:11px;text-transform:uppercase;color:#374151;font-weight:600}
+td{padding:10px 16px;border-bottom:1px solid #f3f4f6;vertical-align:middle}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.active{background:#d1fae5;color:#065f46}.inactive{background:#fee2e2;color:#991b1b}
+.btn{display:inline-flex;align-items:center;padding:6px 12px;border-radius:8px;border:none;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;gap:4px}
+.btn-indigo{background:#6366f1;color:#fff}.btn-ghost{background:#f3f4f6;color:#374151}.btn-red{background:#e53935;color:#fff}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:16px;padding:24px;width:90%;max-width:440px}
+.modal h2{font-size:18px;font-weight:700;margin-bottom:16px}
+.form-group{margin-bottom:14px}
+label{display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px}
+input{width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-family:inherit;font-size:13px;outline:none}
+input:focus{border-color:#6366f1}
+.close{float:right;cursor:pointer;font-size:20px;color:#6b7280;background:none;border:none}
+.alert{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px}
+.alert-success{background:#d1fae5;color:#065f46}.alert-error{background:#fee2e2;color:#991b1b}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>👑 Super Admin</h1>
+  <div><a href="/superadmin">Dashboard</a><a href="/superadmin/logout">Logout</a></div>
+</div>
+<div class="main">
+  <div class="page-header">
+    <h2>🏪 Manage Vendors</h2>
+    <button class="btn btn-indigo" onclick="document.getElementById('addModal').classList.add('open')">+ Add Vendor</button>
+  </div>
+
+  <% if(locals.query && locals.query.success){ %><div class="alert alert-success">✅ Done!</div><% } %>
+  <% if(error){ %><div class="alert alert-error">❌ <%= error %></div><% } %>
+
+  <div class="card">
+    <table>
+      <thead><tr><th>ID</th><th>Restaurant Name</th><th>Email</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+      <tbody>
+      <% vendors.forEach(v => { %>
+        <tr>
+          <td><%= v.id %></td>
+          <td><strong><%= v.name %></strong></td>
+          <td><%= v.email %></td>
+          <td><span class="badge <%= v.is_active?'active':'inactive' %>"><%= v.is_active?'Active':'Inactive' %></span></td>
+          <td style="color:#6b7280;font-size:12px"><%= new Date(v.created_at).toLocaleDateString('en-IN') %></td>
+          <td style="display:flex;gap:6px;flex-wrap:wrap">
+            <a href="/superadmin/vendors/<%= v.id %>/features" class="btn btn-ghost">⚙️ Features</a>
+            <button class="btn btn-ghost" onclick="openResetPass(<%= v.id %>)">🔑 Password</button>
+            <button class="btn btn-ghost" onclick="toggleVendor(<%= v.id %>)"><%= v.is_active?'🔴 Disable':'🟢 Enable' %></button>
+            <button class="btn btn-red" onclick="delVendor(<%= v.id %>,'<%= v.name %>')">🗑️</button>
+          </td>
+        </tr>
+      <% }) %>
+      <% if(!vendors.length){ %>
+        <tr><td colspan="6" style="text-align:center;padding:32px;color:#6b7280">No vendors yet.</td></tr>
+      <% } %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add Vendor Modal -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <button class="close" onclick="document.getElementById('addModal').classList.remove('open')">×</button>
+    <h2>Add New Vendor</h2>
+    <form method="POST" action="/superadmin/vendors/create">
+      <div class="form-group"><label>Restaurant Name</label><input name="name" required placeholder="e.g. Pizza Palace"></div>
+      <div class="form-group"><label>Email</label><input type="email" name="email" required placeholder="owner@restaurant.com"></div>
+      <div class="form-group"><label>Password</label><input type="password" name="password" required placeholder="Min 8 characters" minlength="6"></div>
+      <button type="submit" class="btn btn-indigo" style="width:100%;padding:10px;font-size:14px">Create Vendor</button>
+    </form>
+  </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div class="modal-overlay" id="resetPassModal">
+  <div class="modal">
+    <button class="close" onclick="document.getElementById('resetPassModal').classList.remove('open')">×</button>
+    <h2>🔑 Reset Password</h2>
+    <form method="POST" id="resetPassForm">
+      <div class="form-group"><label>New Password</label><input type="password" name="new_password" required minlength="6"></div>
+      <button type="submit" class="btn btn-indigo" style="width:100%;padding:10px">Reset Password</button>
+    </form>
+  </div>
+</div>
+
+<script>
+function openResetPass(id) {
+  document.getElementById('resetPassForm').action = '/superadmin/vendors/'+id+'/reset-password';
+  document.getElementById('resetPassModal').classList.add('open');
+}
+function toggleVendor(id) {
+  const f = document.createElement('form'); f.method='POST'; f.action='/superadmin/vendors/'+id+'/toggle';
+  document.body.appendChild(f); f.submit();
+}
+function delVendor(id, name) {
+  if(!confirm('Delete vendor "'+name+'"? This will delete ALL their data!')) return;
+  const f = document.createElement('form'); f.method='POST'; f.action='/superadmin/vendors/'+id+'/delete';
+  document.body.appendChild(f); f.submit();
+}
+</script>
+</body>
+</html>

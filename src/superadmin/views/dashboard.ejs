@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Super Admin Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#f3f4f6;color:#111}
+.top{background:#1a1a2e;color:#fff;padding:16px 24px;display:flex;align-items:center;justify-content:space-between}
+.top h1{font-size:18px;font-weight:700}
+.top a{color:#a5b4fc;text-decoration:none;font-size:13px}
+.main{padding:24px;max-width:1200px;margin:0 auto}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
+.stat{background:#fff;border-radius:12px;border:1px solid #e5e7eb;padding:20px}
+.stat .label{font-size:12px;color:#6b7280;margin-bottom:4px}
+.stat .value{font-size:28px;font-weight:700}
+.card{background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;margin-bottom:16px}
+.card-head{padding:16px 20px;border-bottom:1px solid #f3f4f6;display:flex;justify-content:space-between;align-items:center}
+.card-head h2{font-size:16px;font-weight:700}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 16px;background:#f9fafb;border-bottom:2px solid #e5e7eb;font-size:11px;text-transform:uppercase;color:#374151;font-weight:600}
+td{padding:10px 16px;border-bottom:1px solid #f3f4f6}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.active{background:#d1fae5;color:#065f46}.inactive{background:#fee2e2;color:#991b1b}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;border:none;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none}
+.btn-indigo{background:#6366f1;color:#fff}
+.btn-ghost{background:#f3f4f6;color:#374151}
+nav a{color:#a5b4fc;text-decoration:none;font-size:13px;margin-left:16px}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>👑 Super Admin — Food Bot</h1>
+  <div>
+    <a href="/superadmin/vendors">Vendors</a>
+    <a href="/superadmin/logout">Logout</a>
+  </div>
+</div>
+<div class="main">
+  <div class="stats">
+    <div class="stat"><div class="label">Total Vendors</div><div class="value"><%= vendors.length %></div></div>
+    <div class="stat"><div class="label">Total Orders</div><div class="value"><%= globalStats.total_orders||0 %></div></div>
+    <div class="stat"><div class="label">Total Revenue</div><div class="value">₹<%= Number(globalStats.total_revenue||0).toFixed(0) %></div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2>🏪 All Vendors</h2>
+      <a href="/superadmin/vendors" class="btn btn-indigo">Manage Vendors</a>
+    </div>
+    <table>
+      <thead><tr><th>#</th><th>Restaurant</th><th>Email</th><th>Total Orders</th><th>Today</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>
+      <% vendors.forEach(v => { %>
+        <tr>
+          <td><%= v.id %></td>
+          <td><strong><%= v.name %></strong></td>
+          <td><%= v.email %></td>
+          <td><%= v.order_count %></td>
+          <td><%= v.today_orders %></td>
+          <td><span class="badge <%= v.is_active?'active':'inactive' %>"><%= v.is_active?'Active':'Inactive' %></span></td>
+          <td><a href="/superadmin/vendors/<%= v.id %>/features" class="btn btn-ghost">⚙️ Features</a></td>
+        </tr>
+      <% }) %>
+      <% if(!vendors.length) { %>
+        <tr><td colspan="7" style="text-align:center;padding:32px;color:#6b7280">No vendors yet. <a href="/superadmin/vendors">Add one →</a></td></tr>
+      <% } %>
+      </tbody>
+    </table>
+  </div>
+</div>
+</body>
+</html>

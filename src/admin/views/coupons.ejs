@@ -1,0 +1,104 @@
+<%
+const page = 'coupons';
+const title = 'Coupons';
+const body = `
+<div class="page-header">
+  <h1>🏷️ Coupons</h1>
+  <button class="btn btn-primary" onclick="document.getElementById('addModal').classList.add('open')">+ Add Coupon</button>
+</div>
+<div class="card" style="padding:0;overflow-x:auto">
+<table>
+  <thead><tr><th>Code</th><th>Type</th><th>Value</th><th>Min Order</th><th>Usage</th><th>Expires</th><th>Status</th><th>Actions</th></tr></thead>
+  <tbody>
+  ${coupons.map(c => `<tr>
+    <td><strong>${c.code}</strong>${c.description?`<br><span style="font-size:11px;color:#6b7280">${c.description}</span>`:''}</td>
+    <td>${c.type==='flat'?'Flat ₹':'Percent %'}</td>
+    <td><strong>${c.type==='flat'?'₹':''}${c.value}${c.type==='percent'?'%':''}</strong>${c.max_discount>0?`<br><span style="font-size:11px">Max ₹${c.max_discount}</span>`:''}</td>
+    <td>${c.min_order>0?'₹'+c.min_order:'—'}</td>
+    <td>${c.used_count}${c.usage_limit>0?'/'+c.usage_limit:' (unlimited)'}</td>
+    <td>${c.expires_at?new Date(c.expires_at).toLocaleDateString('en-IN'):'Never'}</td>
+    <td><span class="badge ${c.is_active?'badge-ready':'badge-cancelled'}">${c.is_active?'Active':'Inactive'}</span></td>
+    <td>
+      <button class="btn btn-ghost btn-sm" onclick="openEdit(${c.id},'${c.code}','${c.type}',${c.value},${c.min_order},${c.max_discount},${c.usage_limit},${c.per_user_limit},'${c.expires_at||''}','${(c.description||'').replace(/'/g,"\\'")}')">✏️</button>
+      <button class="btn btn-ghost btn-sm" onclick="toggle(${c.id})">${c.is_active?'🔴':'🟢'}</button>
+      <button class="btn btn-danger btn-sm" onclick="del(${c.id})">🗑️</button>
+    </td>
+  </tr>`).join('')}
+  ${coupons.length===0?'<tr><td colspan="8" style="text-align:center;padding:32px;color:#6b7280">No coupons yet.</td></tr>':''}
+  </tbody>
+</table>
+</div>
+
+<!-- Add Modal -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <button class="close" onclick="document.getElementById('addModal').classList.remove('open')">×</button>
+    <h2>Add Coupon</h2>
+    <form method="POST" action="/admin/coupons">
+      <input type="hidden" name="action" value="add">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group"><label>Code</label><input name="code" class="form-control" required placeholder="SAVE50" style="text-transform:uppercase"></div>
+        <div class="form-group"><label>Type</label>
+          <select name="type" class="form-control">
+            <option value="flat">Flat (₹)</option>
+            <option value="percent">Percent (%)</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Value</label><input name="value" type="number" step="0.01" min="0" class="form-control" required></div>
+        <div class="form-group"><label>Min Order (₹)</label><input name="min_order" type="number" step="0.01" min="0" class="form-control" value="0"></div>
+        <div class="form-group"><label>Max Discount (₹)</label><input name="max_discount" type="number" step="0.01" min="0" class="form-control" value="0" placeholder="0 = no limit"></div>
+        <div class="form-group"><label>Total Usage Limit</label><input name="usage_limit" type="number" min="0" class="form-control" value="0" placeholder="0 = unlimited"></div>
+        <div class="form-group"><label>Per User Limit</label><input name="per_user_limit" type="number" min="1" class="form-control" value="1"></div>
+        <div class="form-group"><label>Expires At</label><input name="expires_at" type="date" class="form-control"></div>
+      </div>
+      <div class="form-group"><label>Description</label><input name="description" class="form-control" placeholder="Optional description for admin"></div>
+      <button type="submit" class="btn btn-primary" style="width:100%">Add Coupon</button>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <button class="close" onclick="document.getElementById('editModal').classList.remove('open')">×</button>
+    <h2>Edit Coupon</h2>
+    <form method="POST" action="/admin/coupons">
+      <input type="hidden" name="action" value="edit">
+      <input type="hidden" name="id" id="editId">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group"><label>Code</label><input name="code" id="eCode" class="form-control" required></div>
+        <div class="form-group"><label>Type</label>
+          <select name="type" id="eType" class="form-control"><option value="flat">Flat (₹)</option><option value="percent">Percent (%)</option></select>
+        </div>
+        <div class="form-group"><label>Value</label><input name="value" id="eValue" type="number" step="0.01" min="0" class="form-control"></div>
+        <div class="form-group"><label>Min Order</label><input name="min_order" id="eMin" type="number" step="0.01" class="form-control"></div>
+        <div class="form-group"><label>Max Discount</label><input name="max_discount" id="eMax" type="number" step="0.01" class="form-control"></div>
+        <div class="form-group"><label>Usage Limit</label><input name="usage_limit" id="eLimit" type="number" class="form-control"></div>
+        <div class="form-group"><label>Per User Limit</label><input name="per_user_limit" id="ePerUser" type="number" class="form-control"></div>
+        <div class="form-group"><label>Expires At</label><input name="expires_at" id="eExpiry" type="date" class="form-control"></div>
+      </div>
+      <div class="form-group"><label>Description</label><input name="description" id="eDesc" class="form-control"></div>
+      <button type="submit" class="btn btn-primary" style="width:100%">Save</button>
+    </form>
+  </div>
+</div>
+<script>
+function openEdit(id,code,type,value,min,max,limit,perUser,expiry,desc){
+  document.getElementById('editId').value=id;
+  document.getElementById('eCode').value=code;
+  document.getElementById('eType').value=type;
+  document.getElementById('eValue').value=value;
+  document.getElementById('eMin').value=min;
+  document.getElementById('eMax').value=max;
+  document.getElementById('eLimit').value=limit;
+  document.getElementById('ePerUser').value=perUser;
+  document.getElementById('eExpiry').value=expiry;
+  document.getElementById('eDesc').value=desc;
+  document.getElementById('editModal').classList.add('open');
+}
+function toggle(id){const f=document.createElement('form');f.method='POST';f.action='/admin/coupons';f.innerHTML='<input name="action" value="toggle"><input name="id" value="'+id+'">';document.body.appendChild(f);f.submit();}
+function del(id){if(!confirm('Delete coupon?'))return;const f=document.createElement('form');f.method='POST';f.action='/admin/coupons';f.innerHTML='<input name="action" value="delete"><input name="id" value="'+id+'">';document.body.appendChild(f);f.submit();}
+</script>
+`;
+%>
+<%- include('layout', {body, page, title, features}) %>

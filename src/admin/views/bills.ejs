@@ -1,0 +1,26 @@
+<%
+const page = 'bills';
+const title = 'Bills';
+const body = `
+<div class="page-header">
+  <h1>🧾 Bills</h1>
+</div>
+<div class="card" style="padding:0;overflow-x:auto">
+<table>
+  <thead><tr><th>Order #</th><th>Customer</th><th>Total</th><th>Status</th><th>Bill Viewed</th><th>Actions</th></tr></thead>
+  <tbody>
+  ${bills.map(b => `<tr>
+    <td><strong>#${b.order_number}</strong></td>
+    <td>${b.customer_name||'-'}<br><span style="font-size:11px;color:#6b7280">${b.customer_phone||b.phone}</span></td>
+    <td>₹${b.total}</td>
+    <td><span class="badge badge-${b.order_status}">${b.order_status}</span></td>
+    <td>${b.bill_viewed_at ? '<span style="color:var(--green)">✅ '+new Date(b.bill_viewed_at).toLocaleString('en-IN',{dateStyle:'short',timeStyle:'short'})+'</span>' : '<span style="color:#6b7280">Not viewed</span>'}</td>
+    <td><a href="/bill/${b.bill_token}" target="_blank" class="btn btn-ghost btn-sm">🔗 View Bill</a></td>
+  </tr>`).join('')}
+  ${bills.length===0?'<tr><td colspan="6" style="text-align:center;padding:32px;color:#6b7280">No bills yet.</td></tr>':''}
+  </tbody>
+</table>
+</div>
+`;
+%>
+<%- include('layout', {body, page, title, features}) %>
