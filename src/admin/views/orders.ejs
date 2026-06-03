@@ -297,9 +297,12 @@ function startPolling() {
         lastOrderId = orders[0].id;
         showAlert(orders);
         // Service Worker notification (browser minimize pe bhi)
-        if (swReg && swReg.active) {
-          swReg.active.postMessage({ type: 'NEW_ORDER', orders });
-        }
+        try {
+          if (swReg) {
+            const sw = swReg.active || swReg.waiting || swReg.installing;
+            if (sw) sw.postMessage({ type: 'NEW_ORDER', orders });
+          }
+        } catch(e){}
         // System notification
         if ('Notification' in window && Notification.permission === 'granted') {
           const n = new Notification('New Order!', {
