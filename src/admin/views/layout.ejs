@@ -101,8 +101,18 @@ select.form-control{cursor:pointer}
     <a href="/admin/bills" class="<%= page==='bills'?'active':'' %>"><span class="icon">🧾</span> Bills</a>
     <% } %>
     <a href="/admin/settings" class="<%= page==='settings'?'active':'' %>"><span class="icon">⚙️</span> Settings</a>
+    <a href="/admin/subscription" class="<%= page==='subscription'?'active':'' %>" style="border-top:1px solid #e5e7eb;margin-top:8px;padding-top:18px"><span class="icon">💬</span> Subscription</a>
   </nav>
   <div class="bottom">
+    <% if(locals.subscription){ %>
+    <% var _pct = locals.subscription.messages_total > 0 ? Math.round((locals.subscription.messages_used/locals.subscription.messages_total)*100) : 0; %>
+    <div style="margin-bottom:8px">
+      <div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:3px">Messages: <%= locals.subscription.messages_used %>/<%= locals.subscription.messages_total %></div>
+      <div style="background:#e5e7eb;border-radius:4px;height:5px">
+        <div style="background:<%= _pct>=90?'#ef4444':_pct>=70?'#f59e0b':'#1db954' %>;height:100%;border-radius:4px;width:<%= Math.min(_pct,100) %>%"></div>
+      </div>
+    </div>
+    <% } %>
     <%= locals.vendorName %><br>
     <a href="/admin/logout">Logout →</a>
   </div>

@@ -7,6 +7,7 @@ const { handleLocation } = require('./handlers/location');
 const { handleDeliveryButtons } = require('./handlers/delivery');
 const { handleButton } = require('./handlers/buttons');
 const { handleTextState } = require('./handlers/stateMachine');
+const { checkAndConsumeWindow } = require('../helpers/subscription');
 
 // GET — webhook verification
 router.get('/', async (req, res) => {
@@ -46,6 +47,17 @@ router.post('/', async (req, res) => {
     // Check vendor is active
     const [vendorCheck] = await db.query('SELECT is_active FROM vendors WHERE id = ?', [vendorId]);
     if (!vendorCheck.length || !vendorCheck[0].is_active) return;
+
+    // Check message quota (24-hr conversation window)
+    const { allowed } = await checkAndConsumeWindow(phone, vendorId);
+    if (!allowed) {
+      await require('../helpers/whatsapp').sendWhatsApp(
+        phone,
+        `Sorry, our WhatsApp ordering service is temporarily unavailable due to a technical limit.\n\nPlease call us directly or visit us in person.\n\n_Service will resume once the message quota is renewed._`,
+        vendorId
+      );
+      return;
+    }
 
     const msgType = message.type;
 

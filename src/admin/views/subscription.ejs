@@ -1,0 +1,176 @@
+<%
+const page = 'subscription';
+const title = 'Subscription';
+
+const pct = sub && sub.messages_total > 0 ? Math.round((sub.messages_used / sub.messages_total) * 100) : 0;
+const barColor = pct >= 90 ? '#ef4444' : pct >= 70 ? '#f59e0b' : '#1db954';
+const statusColor = sub ? (sub.status === 'active' ? '#065f46' : '#991b1b') : '#374151';
+
+const body = `
+<div class="page-header">
+  <h1>💬 Message Subscription</h1>
+</div>
+
+<!-- Usage Card -->
+<div class="card" style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;border:none;padding:24px">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px">
+    <div>
+      <div style="font-size:13px;opacity:.7;margin-bottom:4px">Current Plan</div>
+      <div style="font-size:22px;font-weight:700">${sub ? sub.plan_name : 'No Subscription'}</div>
+      <div style="font-size:12px;opacity:.7;margin-top:4px">
+        ${sub && sub.billing_type !== 'trial' && sub.end_date
+          ? 'Renews: ' + new Date(sub.end_date).toLocaleDateString('en-IN')
+          : 'Trial — no expiry'}
+      </div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:13px;opacity:.7;margin-bottom:4px">Messages Used</div>
+      <div style="font-size:28px;font-weight:700">${sub ? sub.messages_used : 0}
+        <span style="font-size:16px;opacity:.6">/ ${sub ? sub.messages_total : 0}</span>
+      </div>
+      ${sub ? `
+      <div style="margin-top:8px;background:rgba(255,255,255,.2);border-radius:6px;height:8px;width:160px;margin-left:auto">
+        <div style="background:${barColor};height:100%;border-radius:6px;width:${Math.min(pct,100)}%;transition:.3s"></div>
+      </div>
+      <div style="font-size:12px;margin-top:4px;opacity:.8">${pct}% used</div>` : ''}
+    </div>
+  </div>
+  ${sub && sub.status === 'expired' ? `
+  <div style="margin-top:16px;background:#ef4444;padding:10px 14px;border-radius:8px;font-size:13px">
+    ⚠️ Subscription expired. Bot is inactive. Buy a plan below to restore service.
+  </div>` : ''}
+  ${sub && sub.status === 'active' && (sub.messages_total - sub.messages_used) <= 0 ? `
+  <div style="margin-top:16px;background:#f59e0b;padding:10px 14px;border-radius:8px;font-size:13px;color:#000">
+    ⚠️ Message quota exhausted. Bot is inactive. Please top up below.
+  </div>` : ''}
+</div>
+
+<!-- Billing Toggle -->
+<h2 style="font-size:18px;font-weight:700;margin-bottom:14px">Choose a Plan</h2>
+<div style="display:flex;gap:8px;margin-bottom:20px">
+  <button id="btnMonthly" onclick="setBilling('monthly')"
+    style="padding:8px 20px;border-radius:20px;border:2px solid #1db954;background:#1db954;color:#fff;font-weight:600;font-size:13px;cursor:pointer">
+    Monthly
+  </button>
+  <button id="btnYearly" onclick="setBilling('yearly')"
+    style="padding:8px 20px;border-radius:20px;border:2px solid #e5e7eb;background:#fff;color:#374151;font-weight:600;font-size:13px;cursor:pointer">
+    Yearly <span style="background:#fef9c3;color:#713f12;padding:2px 8px;border-radius:10px;font-size:11px;margin-left:4px">Save ~20%</span>
+  </button>
+</div>
+
+<!-- Plans Grid -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px;margin-bottom:32px">
+  ${plans.map(p => `
+  <div class="card" style="padding:20px;border:2px solid #e5e7eb">
+    <div style="font-size:15px;font-weight:700;margin-bottom:4px">${p.name}</div>
+    <div style="font-size:12px;color:#6b7280;margin-bottom:12px">${p.description || ''}</div>
+    <div style="font-size:26px;font-weight:800;color:#1a1a2e" id="plan_price_${p.id}">
+      ₹${Math.round(p.price_monthly).toLocaleString()}<span style="font-size:13px;font-weight:500;color:#6b7280">/mo</span>
+    </div>
+    <div style="font-size:12px;color:#059669;margin:8px 0;font-weight:600">✓ ${p.msg_count.toLocaleString()} conversations/period</div>
+    <div style="font-size:12px;color:#059669;margin-bottom:16px;font-weight:600" id="plan_note_${p.id}">✓ Monthly billing</div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:10px"
+      onclick="buyPlan(${p.id},'${p.name}',${p.price_monthly},${p.price_yearly},${p.msg_count})">
+      Buy Plan
+    </button>
+  </div>`).join('')}
+  ${plans.length === 0 ? '<div class="card" style="padding:24px;text-align:center;color:#6b7280">No plans available. Contact your administrator.</div>' : ''}
+</div>
+
+<!-- Payment History -->
+<h2 style="font-size:18px;font-weight:700;margin-bottom:16px">Payment History</h2>
+<div class="card" style="overflow:hidden">
+  <table>
+    <thead><tr><th>Date</th><th>Plan</th><th>Type</th><th>Messages</th><th>Amount</th><th>Status</th></tr></thead>
+    <tbody>
+    ${payments.map(pay => `<tr>
+      <td style="font-size:12px;color:#6b7280">${new Date(pay.created_at).toLocaleDateString('en-IN')}</td>
+      <td><strong>${pay.plan_name}</strong></td>
+      <td style="text-transform:capitalize">${pay.billing_type}</td>
+      <td>${pay.messages_added.toLocaleString()}</td>
+      <td>₹${parseFloat(pay.amount).toFixed(2)}</td>
+      <td><span class="badge" style="background:${pay.status==='paid'?'#d1fae5':pay.status==='failed'?'#fee2e2':'#fff3cd'};color:${pay.status==='paid'?'#065f46':pay.status==='failed'?'#991b1b':'#7d4e00'}">${pay.status}</span></td>
+    </tr>`).join('')}
+    ${payments.length === 0 ? '<tr><td colspan="6" style="text-align:center;padding:24px;color:#6b7280">No payments yet.</td></tr>' : ''}
+    </tbody>
+  </table>
+</div>
+`;
+
+const scripts = `
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+let billingType = 'monthly';
+const planData = ${JSON.stringify(plans.map(p => ({
+  id: p.id, name: p.name,
+  monthly: parseFloat(p.price_monthly),
+  yearly: parseFloat(p.price_yearly),
+  msg_count: p.msg_count
+})))};
+const rzpKey = '${razorpayKeyId}';
+
+function setBilling(type) {
+  billingType = type;
+  ['Monthly','Yearly'].forEach(t => {
+    const btn = document.getElementById('btn'+t);
+    const active = (t.toLowerCase() === type);
+    btn.style.background = active ? '#1db954' : '#fff';
+    btn.style.color = active ? '#fff' : '#374151';
+    btn.style.borderColor = active ? '#1db954' : '#e5e7eb';
+  });
+  planData.forEach(p => {
+    const priceEl = document.getElementById('plan_price_'+p.id);
+    const noteEl = document.getElementById('plan_note_'+p.id);
+    if(type === 'yearly') {
+      priceEl.innerHTML = '₹'+Math.round(p.yearly).toLocaleString()+'<span style="font-size:13px;font-weight:500;color:#6b7280">/yr</span>';
+      noteEl.textContent = '✓ '+(p.msg_count * 12).toLocaleString()+' conversations/year';
+    } else {
+      priceEl.innerHTML = '₹'+Math.round(p.monthly).toLocaleString()+'<span style="font-size:13px;font-weight:500;color:#6b7280">/mo</span>';
+      noteEl.textContent = '✓ Monthly billing';
+    }
+  });
+}
+
+function buyPlan(planId, planName, monthly, yearly, msgCount) {
+  if(!rzpKey) { alert('Payment gateway not configured. Please contact administrator.'); return; }
+
+  fetch('/admin/subscription/create-order', {
+    method: 'POST',
+    headers: {'Content-Type':'application/x-www-form-urlencoded'},
+    body: 'plan_id='+planId+'&billing_type='+billingType
+  })
+  .then(r => r.json())
+  .then(data => {
+    if(data.error) { alert('Error: '+data.error); return; }
+    const rzp = new Razorpay({
+      key: data.key_id,
+      amount: data.amount,
+      currency: data.currency,
+      name: 'FoodBot Subscription',
+      description: data.plan_name,
+      order_id: data.order_id,
+      handler: function(response) {
+        fetch('/admin/subscription/verify', {
+          method: 'POST',
+          headers: {'Content-Type':'application/x-www-form-urlencoded'},
+          body: 'razorpay_order_id='+response.razorpay_order_id+
+                '&razorpay_payment_id='+response.razorpay_payment_id+
+                '&razorpay_signature='+response.razorpay_signature+
+                '&payment_id='+data.payment_id
+        })
+        .then(r => r.json())
+        .then(v => {
+          if(v.success) { alert('Payment successful! Plan is now active.'); location.reload(); }
+          else { alert('Verification failed: '+(v.error||'Try again')); }
+        });
+      },
+      theme: { color: '#1db954' }
+    });
+    rzp.open();
+  })
+  .catch(() => alert('Network error. Please try again.'));
+}
+</script>
+`;
+%>
+<%- include('layout', {body, page, title, features, scripts}) %>

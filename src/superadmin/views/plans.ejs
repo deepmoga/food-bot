@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Plans — Super Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#f3f4f6;color:#111}
+.top{background:#1a1a2e;color:#fff;padding:16px 24px;display:flex;align-items:center;justify-content:space-between}
+.top h1{font-size:18px;font-weight:700}
+.top a{color:#a5b4fc;text-decoration:none;font-size:13px;margin-left:16px}
+.main{padding:24px;max-width:1000px;margin:0 auto}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.page-header h2{font-size:20px;font-weight:700}
+.card{background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;margin-bottom:20px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 16px;background:#f9fafb;border-bottom:2px solid #e5e7eb;font-size:11px;text-transform:uppercase;color:#374151;font-weight:600}
+td{padding:10px 16px;border-bottom:1px solid #f3f4f6;vertical-align:middle}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.active{background:#d1fae5;color:#065f46}.inactive{background:#fee2e2;color:#991b1b}
+.btn{display:inline-flex;align-items:center;padding:6px 12px;border-radius:8px;border:none;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;gap:4px}
+.btn-indigo{background:#6366f1;color:#fff}.btn-ghost{background:#f3f4f6;color:#374151}.btn-red{background:#e53935;color:#fff}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:16px;padding:24px;width:90%;max-width:480px}
+.modal h2{font-size:18px;font-weight:700;margin-bottom:16px}
+.form-group{margin-bottom:14px}
+label{display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px}
+input,textarea{width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-family:inherit;font-size:13px;outline:none}
+input:focus,textarea:focus{border-color:#6366f1}
+.close{float:right;cursor:pointer;font-size:20px;color:#6b7280;background:none;border:none}
+.alert{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px}
+.alert-success{background:#d1fae5;color:#065f46}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>👑 Super Admin</h1>
+  <div>
+    <a href="/superadmin">Dashboard</a>
+    <a href="/superadmin/vendors">Vendors</a>
+    <a href="/superadmin/logout">Logout</a>
+  </div>
+</div>
+<div class="main">
+  <div class="page-header">
+    <h2>📋 Subscription Plans</h2>
+    <button class="btn btn-indigo" onclick="document.getElementById('addModal').classList.add('open')">+ New Plan</button>
+  </div>
+
+  <% if(locals.query && locals.query.success){ %><div class="alert alert-success">✅ Saved!</div><% } %>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th><th>Name</th><th>Messages/Period</th>
+          <th>Monthly Price</th><th>Yearly Price</th><th>Status</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+      <% plans.forEach(p => { %>
+        <tr>
+          <td><%= p.id %></td>
+          <td><strong><%= p.name %></strong><br><span style="color:#6b7280;font-size:11px"><%= p.description %></span></td>
+          <td><strong><%= p.msg_count.toLocaleString() %></strong></td>
+          <td>₹<%= parseFloat(p.price_monthly).toFixed(2) %>/mo</td>
+          <td>₹<%= parseFloat(p.price_yearly).toFixed(2) %>/yr</td>
+          <td><span class="badge <%= p.is_active?'active':'inactive' %>"><%= p.is_active?'Active':'Inactive' %></span></td>
+          <td style="display:flex;gap:6px">
+            <button class="btn btn-ghost" onclick="openEdit(<%= JSON.stringify(p) %>)">✏️ Edit</button>
+            <button class="btn btn-ghost" onclick="togglePlan(<%= p.id %>)"><%= p.is_active?'🔴 Disable':'🟢 Enable' %></button>
+            <button class="btn btn-red" onclick="delPlan(<%= p.id %>,'<%= p.name %>')">🗑️</button>
+          </td>
+        </tr>
+      <% }) %>
+      <% if(!plans.length){ %>
+        <tr><td colspan="7" style="text-align:center;padding:32px;color:#6b7280">No plans yet. Add one above.</td></tr>
+      <% } %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add Plan Modal -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <button class="close" onclick="document.getElementById('addModal').classList.remove('open')">×</button>
+    <h2>New Plan</h2>
+    <form method="POST" action="/superadmin/plans/create">
+      <div class="form-group"><label>Plan Name</label><input name="name" required placeholder="e.g. Starter"></div>
+      <div class="form-group"><label>Description</label><textarea name="description" rows="2" placeholder="e.g. 500 conversation windows/month"></textarea></div>
+      <div class="form-group"><label>Messages per Period</label><input type="number" name="msg_count" required min="1" placeholder="e.g. 500"></div>
+      <div class="row2">
+        <div class="form-group"><label>Monthly Price (₹)</label><input type="number" step="0.01" name="price_monthly" required placeholder="499.00"></div>
+        <div class="form-group"><label>Yearly Price (₹)</label><input type="number" step="0.01" name="price_yearly" required placeholder="4999.00"></div>
+      </div>
+      <div class="form-group"><label>Sort Order</label><input type="number" name="sort_order" value="0"></div>
+      <button type="submit" class="btn btn-indigo" style="width:100%;padding:10px">Create Plan</button>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Plan Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <button class="close" onclick="document.getElementById('editModal').classList.remove('open')">×</button>
+    <h2>Edit Plan</h2>
+    <form method="POST" id="editForm">
+      <div class="form-group"><label>Plan Name</label><input name="name" id="e_name" required></div>
+      <div class="form-group"><label>Description</label><textarea name="description" id="e_desc" rows="2"></textarea></div>
+      <div class="form-group"><label>Messages per Period</label><input type="number" name="msg_count" id="e_msg" required min="1"></div>
+      <div class="row2">
+        <div class="form-group"><label>Monthly Price (₹)</label><input type="number" step="0.01" name="price_monthly" id="e_pm" required></div>
+        <div class="form-group"><label>Yearly Price (₹)</label><input type="number" step="0.01" name="price_yearly" id="e_py" required></div>
+      </div>
+      <div class="form-group"><label>Sort Order</label><input type="number" name="sort_order" id="e_sort"></div>
+      <button type="submit" class="btn btn-indigo" style="width:100%;padding:10px">Save Changes</button>
+    </form>
+  </div>
+</div>
+
+<script>
+function openEdit(p) {
+  document.getElementById('editForm').action = '/superadmin/plans/'+p.id+'/edit';
+  document.getElementById('e_name').value = p.name;
+  document.getElementById('e_desc').value = p.description || '';
+  document.getElementById('e_msg').value = p.msg_count;
+  document.getElementById('e_pm').value = p.price_monthly;
+  document.getElementById('e_py').value = p.price_yearly;
+  document.getElementById('e_sort').value = p.sort_order;
+  document.getElementById('editModal').classList.add('open');
+}
+function togglePlan(id) {
+  const f = document.createElement('form'); f.method='POST'; f.action='/superadmin/plans/'+id+'/toggle';
+  document.body.appendChild(f); f.submit();
+}
+function delPlan(id, name) {
+  if(!confirm('Delete plan "'+name+'"?')) return;
+  const f = document.createElement('form'); f.method='POST'; f.action='/superadmin/plans/'+id+'/delete';
+  document.body.appendChild(f); f.submit();
+}
+</script>
+</body>
+</html>

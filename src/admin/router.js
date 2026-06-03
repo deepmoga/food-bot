@@ -28,6 +28,15 @@ router.get('/logout', (req, res) => { req.session.destroy(); res.redirect('/admi
 // All routes below require auth
 router.use(requireAuth);
 
+// Inject subscription into res.locals so all views can show usage bar
+router.use(async (req, res, next) => {
+  try {
+    const { getSubscription } = require('../helpers/subscription');
+    res.locals.subscription = await getSubscription(req.session.vendorId);
+  } catch (_) {}
+  next();
+});
+
 // Helper to get enabled features for nav
 async function getFeatures(vendorId) {
   const [rows] = await db.query('SELECT feature_key, is_enabled FROM vendor_features WHERE vendor_id = ?', [vendorId]);
@@ -308,6 +317,118 @@ router.post('/store-hours', async (req, res) => {
   }
   clearCache(vendorId);
   res.redirect('/admin/store-hours?saved=1');
+});
+
+// --- SUBSCRIPTION ---
+router.get('/subscription', async (req, res) => {
+  const vendorId = req.session.vendorId;
+  const features = await getFeatures(vendorId);
+  const { getSubscription } = require('../helpers/subscription');
+  const sub = await getSubscription(vendorId);
+  const [plans] = await db.query('SELECT * FROM plans WHERE is_active=1 ORDER BY sort_order, id');
+  const [payments] = await db.query(
+    'SELECT * FROM subscription_payments WHERE vendor_id=? ORDER BY id DESC LIMIT 20',
+    [vendorId]
+  );
+  const razorpayKeyId = process.env.PLATFORM_RAZORPAY_KEY_ID || '';
+  res.render('admin/views/subscription', { sub, plans, payments, features, razorpayKeyId, query: req.query });
+});
+
+// Create Razorpay order for plan purchase
+router.post('/subscription/create-order', async (req, res) => {
+  const vendorId = req.session.vendorId;
+  const { plan_id, billing_type } = req.body;
+  if (!['monthly', 'yearly'].includes(billing_type)) return res.json({ error: 'Invalid billing type' });
+
+  const [[plan]] = await db.query('SELECT * FROM plans WHERE id=? AND is_active=1', [plan_id]);
+  if (!plan) return res.json({ error: 'Plan not found' });
+
+  const amount = billing_type === 'yearly' ? plan.price_yearly : plan.price_monthly;
+  const messagesAdded = billing_type === 'yearly' ? plan.msg_count * 12 : plan.msg_count;
+
+  const Razorpay = require('razorpay');
+  const rzp = new Razorpay({
+    key_id: process.env.PLATFORM_RAZORPAY_KEY_ID,
+    key_secret: process.env.PLATFORM_RAZORPAY_KEY_SECRET
+  });
+
+  try {
+    const rzpOrder = await rzp.orders.create({
+      amount: Math.round(amount * 100),
+      currency: 'INR',
+      notes: { vendor_id: String(vendorId), plan_id: String(plan_id), billing_type }
+    });
+
+    const [result] = await db.query(
+      `INSERT INTO subscription_payments (vendor_id, plan_id, plan_name, billing_type, messages_added, amount, razorpay_order_id, status)
+       VALUES (?,?,?,?,?,?,?,'pending')`,
+      [vendorId, plan.id, plan.name, billing_type, messagesAdded, amount, rzpOrder.id]
+    );
+
+    res.json({
+      order_id: rzpOrder.id,
+      amount: rzpOrder.amount,
+      currency: 'INR',
+      key_id: process.env.PLATFORM_RAZORPAY_KEY_ID,
+      plan_name: `${plan.name} (${billing_type})`,
+      payment_id: result.insertId
+    });
+  } catch (e) {
+    console.error('[Subscription] Razorpay create order error:', e.message);
+    res.json({ error: 'Payment gateway error. Try again.' });
+  }
+});
+
+// Verify payment and activate subscription
+router.post('/subscription/verify', async (req, res) => {
+  const vendorId = req.session.vendorId;
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, payment_id } = req.body;
+
+  const crypto = require('crypto');
+  const secret = process.env.PLATFORM_RAZORPAY_KEY_SECRET || '';
+  const expected = crypto.createHmac('sha256', secret)
+    .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+    .digest('hex');
+
+  if (expected !== razorpay_signature) {
+    return res.json({ success: false, error: 'Payment verification failed' });
+  }
+
+  const [[payment]] = await db.query(
+    'SELECT * FROM subscription_payments WHERE id=? AND vendor_id=? AND status="pending"',
+    [payment_id, vendorId]
+  );
+  if (!payment) return res.json({ success: false, error: 'Payment record not found' });
+
+  await db.query(
+    'UPDATE subscription_payments SET status="paid", razorpay_payment_id=? WHERE id=?',
+    [razorpay_payment_id, payment_id]
+  );
+
+  // Calculate end_date
+  const now = new Date();
+  let endDate;
+  if (payment.billing_type === 'monthly') {
+    endDate = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
+  } else {
+    endDate = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
+  }
+  const endDateStr = endDate.toISOString().split('T')[0];
+
+  // Upsert subscription — reset messages for new period (no carry-forward)
+  await db.query(
+    `INSERT INTO vendor_subscriptions
+      (vendor_id, plan_id, plan_name, billing_type, messages_total, messages_used, start_date, end_date, status, alert_80_sent, alert_100_sent)
+     VALUES (?,?,?,?,?,0,CURDATE(),?,'active',0,0)
+     ON DUPLICATE KEY UPDATE
+       plan_id=VALUES(plan_id), plan_name=VALUES(plan_name), billing_type=VALUES(billing_type),
+       messages_total=VALUES(messages_total), messages_used=0,
+       start_date=CURDATE(), end_date=VALUES(end_date), status='active',
+       alert_80_sent=0, alert_100_sent=0`,
+    [vendorId, payment.plan_id, payment.plan_name, payment.billing_type, payment.messages_added, endDateStr]
+  );
+
+  res.json({ success: true });
 });
 
 // --- BILLS ---

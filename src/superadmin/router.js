@@ -41,21 +41,32 @@ router.get('/', async (req, res) => {
 // VENDORS LIST
 router.get('/vendors', async (req, res) => {
   const [vendors] = await db.query('SELECT * FROM vendors ORDER BY id DESC');
+  const [subs] = await db.query('SELECT * FROM vendor_subscriptions');
+  const subMap = {};
+  for (const s of subs) subMap[s.vendor_id] = s;
+  for (const v of vendors) v.sub = subMap[v.id] || null;
   res.render('superadmin/views/vendors', { vendors, error: null, success: null, query: req.query });
 });
 
 // CREATE VENDOR
 router.post('/vendors/create', async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, trial_messages } = req.body;
   try {
     const hashed = await bcrypt.hash(password, 10);
     const [result] = await db.query('INSERT INTO vendors (name, email, password) VALUES (?,?,?)', [name, email, hashed]);
     const vendorId = result.insertId;
     await db.query('CALL setup_vendor_defaults(?)', [vendorId]);
+    // Create trial subscription with 50 free messages (or super admin's chosen amount)
+    const trialCount = parseInt(trial_messages) || 50;
+    await db.query(
+      `INSERT INTO vendor_subscriptions (vendor_id, plan_name, billing_type, messages_total, messages_used, start_date, end_date, status)
+       VALUES (?, 'Trial', 'trial', ?, 0, CURDATE(), NULL, 'active')`,
+      [vendorId, trialCount]
+    );
     res.redirect('/superadmin/vendors?success=1');
   } catch (e) {
     const [vendors] = await db.query('SELECT * FROM vendors ORDER BY id DESC');
-    res.render('superadmin/views/vendors', { vendors, error: 'Email already exists or error creating vendor.', success: null });
+    res.render('superadmin/views/vendors', { vendors, error: 'Email already exists or error creating vendor.', success: null, query: {} });
   }
 });
 
@@ -102,6 +113,65 @@ router.post('/vendors/:id/features', async (req, res) => {
     );
   }
   res.redirect(`/superadmin/vendors/${vendorId}/features?saved=1`);
+});
+
+// MANUAL TOP-UP — add messages to a vendor
+router.post('/vendors/:id/topup', async (req, res) => {
+  const vendorId = req.params.id;
+  const { messages } = req.body;
+  const count = parseInt(messages) || 0;
+  if (count > 0) {
+    // Upsert subscription if not exists
+    await db.query(
+      `INSERT INTO vendor_subscriptions (vendor_id, plan_name, billing_type, messages_total, messages_used, start_date, status)
+       VALUES (?, 'Manual Top-up', 'trial', ?, 0, CURDATE(), 'active')
+       ON DUPLICATE KEY UPDATE
+         messages_total = messages_total + VALUES(messages_total),
+         status = 'active',
+         alert_80_sent = 0,
+         alert_100_sent = 0`,
+      [vendorId, count]
+    );
+  }
+  res.redirect('/superadmin/vendors?success=1');
+});
+
+// PLANS — list
+router.get('/plans', async (req, res) => {
+  const [plans] = await db.query('SELECT * FROM plans ORDER BY sort_order, id');
+  res.render('superadmin/views/plans', { plans, query: req.query });
+});
+
+// PLANS — create
+router.post('/plans/create', async (req, res) => {
+  const { name, description, msg_count, price_monthly, price_yearly, sort_order } = req.body;
+  await db.query(
+    'INSERT INTO plans (name, description, msg_count, price_monthly, price_yearly, sort_order) VALUES (?,?,?,?,?,?)',
+    [name, description, msg_count, price_monthly, price_yearly, sort_order || 0]
+  );
+  res.redirect('/superadmin/plans?success=1');
+});
+
+// PLANS — edit
+router.post('/plans/:id/edit', async (req, res) => {
+  const { name, description, msg_count, price_monthly, price_yearly, sort_order } = req.body;
+  await db.query(
+    'UPDATE plans SET name=?, description=?, msg_count=?, price_monthly=?, price_yearly=?, sort_order=? WHERE id=?',
+    [name, description, msg_count, price_monthly, price_yearly, sort_order || 0, req.params.id]
+  );
+  res.redirect('/superadmin/plans?success=1');
+});
+
+// PLANS — toggle active
+router.post('/plans/:id/toggle', async (req, res) => {
+  await db.query('UPDATE plans SET is_active=NOT is_active WHERE id=?', [req.params.id]);
+  res.redirect('/superadmin/plans');
+});
+
+// PLANS — delete
+router.post('/plans/:id/delete', async (req, res) => {
+  await db.query('DELETE FROM plans WHERE id=?', [req.params.id]);
+  res.redirect('/superadmin/plans');
 });
 
 module.exports = router;
