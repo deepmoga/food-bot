@@ -2,6 +2,8 @@ const db = require('../config/db');
 const { sendWhatsApp, sendButtonMessage } = require('./whatsapp');
 const { getSetting } = require('./settings');
 const { cartSummary } = require('./order');
+const { getBillUrl } = require('./payment');
+const { isFeatureEnabled } = require('./store');
 
 async function sendDeliveryAssignment(order, boy, vendorId) {
   const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
@@ -42,11 +44,18 @@ async function handleDeliveryConfirmed(deliveryPhone, orderId, vendorId) {
   await sendWhatsApp(deliveryPhone, `✅ Delivery confirmed for order #${order.order_number}. Thank you!`, vendorId);
 
   const reviewLink = await getSetting('google_review_link', vendorId);
+  const billEnabled = await isFeatureEnabled('bill_generation', vendorId);
+  let billUrl = null;
+  if (billEnabled && order.bill_token) {
+    billUrl = await getBillUrl(order.bill_token, vendorId);
+  }
+
   const customerMsg =
     `🎉 *Order Delivered!*\n\nHi ${order.customer_name || 'there'}! Your order *#${order.order_number}* has been delivered.\n\n` +
-    `${order.payment_method === 'cod' ? `💵 Please pay ₹${order.total} to the delivery person.\n\n` : ''}` +
+    `${order.payment_method === 'cod' ? `💵 Please pay *₹${order.total}* to the delivery person.\n\n` : ''}` +
     `Thank you for ordering! We hope you enjoy your meal. 🙏` +
-    (reviewLink ? `\n\nPlease rate us: ${reviewLink}` : '');
+    (billUrl ? `\n\n🧾 *Your Bill:* ${billUrl}` : '') +
+    (reviewLink ? `\n\n⭐ *Rate us:* ${reviewLink}` : '');
   await sendWhatsApp(order.phone, customerMsg, vendorId);
 
   const adminPhone = await getSetting('restaurant_phone', vendorId);

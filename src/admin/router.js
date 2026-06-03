@@ -100,6 +100,24 @@ router.post('/api/update-status', async (req, res) => {
     await sendWhatsApp(order.phone, msg, vendorId);
   }
 
+  // Bill send on 'delivered' status
+  if (status === 'delivered') {
+    const { isFeatureEnabled } = require('../helpers/store');
+    const { getBillUrl } = require('../helpers/payment');
+    const billEnabled = await isFeatureEnabled('bill_generation', vendorId);
+    if (billEnabled && order.bill_token) {
+      const billUrl = await getBillUrl(order.bill_token, vendorId);
+      const reviewLink = (await db.query("SELECT setting_value FROM settings WHERE vendor_id=? AND setting_key='google_review_link'", [vendorId]))[0][0]?.setting_value || '';
+      const billMsg =
+        `🎉 *Order Delivered!*\n\nHi ${order.customer_name || 'there'}! Your order *#${order.order_number}* has been delivered.\n\n` +
+        `🧾 *Your Bill:* ${billUrl}` +
+        (reviewLink ? `\n\n⭐ *Rate us:* ${reviewLink}` : '') +
+        `\n\nThank you for ordering! 🙏`;
+      await sendWhatsApp(order.phone, billMsg, vendorId);
+    }
+    await db.query("UPDATE orders SET review_sent=1 WHERE id=?", [order_id]);
+  }
+
   res.json({ success: true });
 });
 

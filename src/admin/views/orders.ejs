@@ -184,19 +184,26 @@ async function saveEdit() {
   else alert('Error saving order');
 }
 
-// Beep sound
+// Alert sound — loud 3-tone ding dong
 let beepInterval = null;
 function playBeep() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    [0, 400, 800].forEach(delay => {
+    const tones = [
+      {freq:1046, start:0,    dur:0.18, vol:0.8},
+      {freq:784,  start:0.2,  dur:0.18, vol:0.8},
+      {freq:523,  start:0.4,  dur:0.28, vol:0.9},
+      {freq:1046, start:0.75, dur:0.18, vol:0.8},
+      {freq:1318, start:0.95, dur:0.28, vol:0.9},
+    ];
+    tones.forEach(t => {
       const o = ctx.createOscillator(), g = ctx.createGain();
       o.connect(g); g.connect(ctx.destination);
-      o.frequency.value = 880; o.type = 'sine';
-      g.gain.setValueAtTime(0.4, ctx.currentTime + delay/1000);
-      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay/1000 + 0.35);
-      o.start(ctx.currentTime + delay/1000);
-      o.stop(ctx.currentTime + delay/1000 + 0.35);
+      o.frequency.value = t.freq; o.type = 'triangle';
+      g.gain.setValueAtTime(t.vol, ctx.currentTime + t.start);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t.start + t.dur);
+      o.start(ctx.currentTime + t.start);
+      o.stop(ctx.currentTime + t.start + t.dur + 0.05);
     });
   } catch(e){}
 }

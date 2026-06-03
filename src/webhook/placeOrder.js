@@ -38,14 +38,13 @@ async function placeOrder(phone, vendorId) {
   await resetSession(phone, vendorId);
 
   const eta = await getSetting('estimated_time', vendorId);
+  const restName = await getSetting('restaurant_name', vendorId) || 'Restaurant';
   const summary = cartSummary(cart);
 
   if (session.payment_method === 'cod') {
-    const billEnabled = await isFeatureEnabled('bill_generation', vendorId);
-    const billUrl = billEnabled ? await getBillUrl(order.bill_token, vendorId) : null;
-
+    // ✅ Fix: "Order Received" - waiting status, NO bill link yet
     const msg =
-      `✅ *Order Confirmed!*\n\n` +
+      `🛒 *Order Received!*\n\n` +
       `📦 Order: *#${order.order_number}*\n\n` +
       `${summary}\n\n` +
       `💰 Subtotal: ₹${breakdown.subtotal}\n` +
@@ -55,11 +54,22 @@ async function placeOrder(phone, vendorId) {
       `💵 *Total: ₹${breakdown.total}* (Cash on Delivery)\n\n` +
       `📍 ${session.temp_address || 'Pickup'}\n` +
       `⏱️ Estimated time: ${eta} mins\n\n` +
-      `Thank you for ordering! 🙏` +
-      (billUrl ? `\n\n🧾 Bill: ${billUrl}` : '');
+      `⏳ Your order is being reviewed. We'll confirm it shortly!\n\n` +
+      `Thank you for ordering from *${restName}*! 🙏`;
 
     await sendWhatsApp(phone, msg, vendorId);
-    await notifyRestaurant({ ...order, items: JSON.stringify(cart), delivery_address: session.temp_address, customer_lat: session.temp_lat, customer_lng: session.temp_lng, phone, customer_name: session.customer_name, customer_phone: session.customer_phone, payment_method: 'cod', total: breakdown.total }, vendorId);
+    await notifyRestaurant({
+      ...order,
+      items: JSON.stringify(cart),
+      delivery_address: session.temp_address,
+      customer_lat: session.temp_lat,
+      customer_lng: session.temp_lng,
+      phone,
+      customer_name: session.customer_name,
+      customer_phone: session.customer_phone,
+      payment_method: 'cod',
+      total: breakdown.total
+    }, vendorId);
 
   } else {
     // Online payment
@@ -78,7 +88,18 @@ async function placeOrder(phone, vendorId) {
         `Your order will be confirmed after payment. ⏳`;
 
       await sendWhatsApp(phone, msg, vendorId);
-      await notifyRestaurant({ ...order, items: JSON.stringify(cart), delivery_address: session.temp_address, customer_lat: session.temp_lat, customer_lng: session.temp_lng, phone, customer_name: session.customer_name, customer_phone: session.customer_phone, payment_method: 'online', total: breakdown.total }, vendorId);
+      await notifyRestaurant({
+        ...order,
+        items: JSON.stringify(cart),
+        delivery_address: session.temp_address,
+        customer_lat: session.temp_lat,
+        customer_lng: session.temp_lng,
+        phone,
+        customer_name: session.customer_name,
+        customer_phone: session.customer_phone,
+        payment_method: 'online',
+        total: breakdown.total
+      }, vendorId);
     } catch (e) {
       console.error('[placeOrder] Razorpay error:', e.message);
       await sendWhatsApp(phone, '❌ Payment link generate karne mein error aaya. Please contact us.', vendorId);
