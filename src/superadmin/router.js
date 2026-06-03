@@ -140,16 +140,22 @@ router.post('/vendors/:id/topup', async (req, res) => {
 // PLATFORM SETTINGS
 router.get('/settings', async (req, res) => {
   const { getPlatformSetting } = require('../helpers/platformSettings');
-  const rzpKeyId = await getPlatformSetting('platform_razorpay_key_id');
-  const rzpKeySecret = await getPlatformSetting('platform_razorpay_key_secret');
-  res.render('superadmin/views/settings', { rzpKeyId, rzpKeySecret, query: req.query });
+  const [rzpKeyId, rzpKeySecret, waToken] = await Promise.all([
+    getPlatformSetting('platform_razorpay_key_id'),
+    getPlatformSetting('platform_razorpay_key_secret'),
+    getPlatformSetting('platform_whatsapp_token')
+  ]);
+  res.render('superadmin/views/settings', { rzpKeyId, rzpKeySecret, waToken, query: req.query });
 });
 
 router.post('/settings', async (req, res) => {
   const { setPlatformSetting, clearPlatformCache } = require('../helpers/platformSettings');
-  const { platform_razorpay_key_id, platform_razorpay_key_secret } = req.body;
-  await setPlatformSetting('platform_razorpay_key_id', platform_razorpay_key_id || '');
-  await setPlatformSetting('platform_razorpay_key_secret', platform_razorpay_key_secret || '');
+  const { platform_razorpay_key_id, platform_razorpay_key_secret, platform_whatsapp_token } = req.body;
+  await Promise.all([
+    setPlatformSetting('platform_razorpay_key_id', platform_razorpay_key_id || ''),
+    setPlatformSetting('platform_razorpay_key_secret', platform_razorpay_key_secret || ''),
+    setPlatformSetting('platform_whatsapp_token', platform_whatsapp_token || '')
+  ]);
   clearPlatformCache();
   res.redirect('/superadmin/settings?saved=1');
 });

@@ -78,12 +78,17 @@ ${locals.query && locals.query.saved ? '<div class="alert alert-success">✅ Set
     </div>
   </div>
 
-  <div class="card">
-    <h3 style="margin-bottom:16px;font-size:16px">📱 WhatsApp API</h3>
+  <div class="card" style="border:2px solid #25d366">
+    <h3 style="margin-bottom:4px;font-size:16px">📱 WhatsApp API</h3>
+    <p style="font-size:12px;color:#6b7280;margin-bottom:16px">
+      Phone Number ID tumhare admin ne provide kiya hoga. Token platform level pe set hai.
+    </p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <div class="form-group" style="grid-column:1/-1"><label>WhatsApp Token</label><input name="whatsapp_token" class="form-control" value="${s('whatsapp_token')}" placeholder="EAAxxxxx..."></div>
-      <div class="form-group"><label>Phone Number ID</label><input name="whatsapp_phone_id" class="form-control" value="${s('whatsapp_phone_id')}"></div>
+      <div class="form-group"><label>Phone Number ID</label><input name="whatsapp_phone_id" class="form-control" value="${s('whatsapp_phone_id')}" placeholder="Platform admin se lo"></div>
       <div class="form-group"><label>Verify Token</label><input name="verify_token" class="form-control" value="${s('verify_token')}"></div>
+    </div>
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px;font-size:12px;color:#166534;margin-top:4px">
+      ✅ WhatsApp Token platform level pe set hai — tumhe kuch karne ki zaroorat nahi
     </div>
   </div>
 

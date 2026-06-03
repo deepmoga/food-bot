@@ -1,14 +1,18 @@
 const axios = require('axios');
 const { getSetting } = require('./settings');
+const { getPlatformSetting } = require('./platformSettings');
 const db = require('../config/db');
 
 const BASE_URL = 'https://graph.facebook.com/v18.0';
 
 async function getWAConfig(vendorId) {
-  const [token, phoneId] = await Promise.all([
+  const [vendorToken, phoneId, platformToken] = await Promise.all([
     getSetting('whatsapp_token', vendorId),
-    getSetting('whatsapp_phone_id', vendorId)
+    getSetting('whatsapp_phone_id', vendorId),
+    getPlatformSetting('platform_whatsapp_token')
   ]);
+  // Use vendor's own token if set, otherwise fall back to platform token
+  const token = (vendorToken && vendorToken.trim()) ? vendorToken.trim() : platformToken;
   return { token, phoneId };
 }
 
