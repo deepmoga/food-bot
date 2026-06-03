@@ -20,6 +20,27 @@ app.use(session({
   cookie: { maxAge: 24 * 60 * 60 * 1000 }
 }));
 
+// ===== TEST ENDPOINT — Dev only =====
+const db = require('./src/config/db');
+app.get('/test/last-messages', async (req, res) => {
+  const { phone } = req.query;
+  if (!phone) return res.json([]);
+  try {
+    const [rows] = await db.query(
+      "SELECT message, direction, created_at FROM message_logs WHERE phone = ? AND direction = 'out' ORDER BY id DESC LIMIT 5",
+      [phone]
+    );
+    const msgs = rows.reverse().map(r => {
+      const text = r.message || '';
+      // Extract buttons from text if any [BUTTONS] prefix
+      return { text, body: text, buttons: [] };
+    });
+    res.json(msgs);
+  } catch (e) {
+    res.json([]);
+  }
+});
+
 // Routes
 app.use('/webhook', require('./src/webhook/index'));
 app.use('/admin', require('./src/admin/router'));
