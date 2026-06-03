@@ -89,6 +89,7 @@ router.post('/api/update-status', async (req, res) => {
     const itemsText = items.map(i => `• ${i.name} x${i.qty}`).join('\n');
     const reviewLink = (await db.query("SELECT setting_value FROM settings WHERE vendor_id=? AND setting_key='google_review_link'", [vendorId]))[0][0]?.setting_value || '';
     const eta = (await db.query("SELECT setting_value FROM settings WHERE vendor_id=? AND setting_key='estimated_time'", [vendorId]))[0][0]?.setting_value || '30-45';
+    const restName = (await db.query("SELECT setting_value FROM settings WHERE vendor_id=? AND setting_key='restaurant_name'", [vendorId]))[0][0]?.setting_value || '';
     let msg = msgRows[0].message
       .replace(/{order_number}/g, order.order_number)
       .replace(/{name}/g, order.customer_name || 'Customer')
@@ -96,6 +97,7 @@ router.post('/api/update-status', async (req, res) => {
       .replace(/{total}/g, order.total)
       .replace(/{estimated_time}/g, eta)
       .replace(/{review_link}/g, reviewLink)
+      .replace(/{restaurant_name}/g, restName)
       .replace(/{delivery_or_pickup}/g, order.delivery_address ? `📍 ${order.delivery_address}` : '🏃 Pickup');
     await sendWhatsApp(order.phone, msg, vendorId);
   }

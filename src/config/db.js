@@ -9,11 +9,21 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  timezone: '+05:30'
+  timezone: '+05:30',
+  charset: 'utf8mb4'
+});
+
+// Fix encoding on every connection
+pool.on('connection', (conn) => {
+  conn.query("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci");
 });
 
 pool.getConnection()
-  .then(conn => { console.log('✅ MySQL connected'); conn.release(); })
+  .then(conn => {
+    conn.query("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci");
+    console.log('✅ MySQL connected');
+    conn.release();
+  })
   .catch(err => console.error('❌ MySQL connection failed:', err.message));
 
 module.exports = pool;

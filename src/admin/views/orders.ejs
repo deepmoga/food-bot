@@ -66,8 +66,11 @@ ${orders.map(o => {
       ${deliveryBoys.map(b=>`<option value="${b.id}" ${o.delivery_boy_id==b.id?'selected':''}>${b.name}</option>`).join('')}
     </select>` : '';
 
-  const statusSelect = `
-    <select class="form-control" style="font-size:12px;padding:4px 8px" onchange="updateStatus(${o.id},this.value,this)">
+  const isFinal = o.order_status === 'delivered' || o.order_status === 'cancelled';
+  const statusColors = {waiting:'#f59e0b',confirmed:'#3b82f6',preparing:'#8b5cf6',ready:'#22c55e',delivered:'#10b981',cancelled:'#ef4444'};
+  const statusSelect = isFinal
+    ? `<span class="badge badge-${o.order_status}" style="font-size:12px;padding:6px 12px">${o.order_status.charAt(0).toUpperCase()+o.order_status.slice(1)}</span>`
+    : `<select class="form-control" style="font-size:12px;padding:4px 8px;border-color:${statusColors[o.order_status]||'#d1d5db'};font-weight:600" onchange="updateStatus(${o.id},this.value,this)">
       ${['waiting','confirmed','preparing','ready','delivered','cancelled'].map(s=>`<option value="${s}" ${o.order_status===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
     </select>`;
 
@@ -184,27 +187,26 @@ async function saveEdit() {
   else alert('Error saving order');
 }
 
-// Alert sound — loud 3-tone ding dong
+// Police siren sound — loud wee-woo
 let beepInterval = null;
 function playBeep() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const tones = [
-      {freq:1046, start:0,    dur:0.18, vol:0.8},
-      {freq:784,  start:0.2,  dur:0.18, vol:0.8},
-      {freq:523,  start:0.4,  dur:0.28, vol:0.9},
-      {freq:1046, start:0.75, dur:0.18, vol:0.8},
-      {freq:1318, start:0.95, dur:0.28, vol:0.9},
-    ];
-    tones.forEach(t => {
-      const o = ctx.createOscillator(), g = ctx.createGain();
-      o.connect(g); g.connect(ctx.destination);
-      o.frequency.value = t.freq; o.type = 'triangle';
-      g.gain.setValueAtTime(t.vol, ctx.currentTime + t.start);
-      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t.start + t.dur);
-      o.start(ctx.currentTime + t.start);
-      o.stop(ctx.currentTime + t.start + t.dur + 0.05);
-    });
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(1.0, ctx.currentTime);
+    gain.connect(ctx.destination);
+    // Wee-woo x2
+    for(let i=0; i<2; i++) {
+      const osc = ctx.createOscillator();
+      osc.connect(gain);
+      osc.type = 'sawtooth';
+      const t = ctx.currentTime + i * 0.9;
+      osc.frequency.setValueAtTime(600, t);
+      osc.frequency.linearRampToValueAtTime(1200, t + 0.4);
+      osc.frequency.linearRampToValueAtTime(600, t + 0.8);
+      osc.start(t);
+      osc.stop(t + 0.85);
+    }
   } catch(e){}
 }
 
