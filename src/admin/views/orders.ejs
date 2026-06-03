@@ -132,9 +132,8 @@ ${orders.length===0?'<tr><td colspan="9" style="text-align:center;padding:32px;c
 let lastOrderId = 0;
 let currentEditOrderId = null;
 let currentEditItems = [];
-
-// Get initial last order id
-fetch('/admin/api/latest-order-id').then(r=>r.json()).then(d=>{ lastOrderId = d.id; });
+let pollTimer = null;
+let beepTimer = null;
 
 async function updateStatus(orderId, status, sel) {
   sel.disabled = true;
@@ -238,11 +237,8 @@ function showAlert(orders) {
     }
   }
 
-  // BroadcastChannel — notify ALL open tabs
-  try {
-    const bc = new BroadcastChannel('foodbot-orders');
-    bc.postMessage({ type: 'new-order', orders });
-  } catch(e){}
+  // BroadcastChannel — notify other open tabs
+  try { if(window._bc) window._bc.postMessage({ type: 'new-order', orders }); } catch(e){}
 }
 
 // Listen for alerts from other tabs
@@ -267,9 +263,7 @@ function declineAlert() {
   document.getElementById('newOrderOverlay').style.display='none';
 }
 
-// Polling handled by startPolling() below
-
-// Stats refresh every 15s
+// ===== STATS REFRESH =====
 setInterval(async () => {
   try {
     const d = await fetch('/admin/api/stats').then(r=>r.json());
@@ -280,66 +274,63 @@ setInterval(async () => {
   } catch(e){}
 }, 15000);
 
-// Auto page refresh every 60s (jab alert na ho)
-setInterval(()=>{
-  if(document.getElementById('newOrderAlert').style.display==='none') location.reload();
-}, 60000);
-
-// ===== SERVICE WORKER SETUP =====
+// ===== SERVICE WORKER =====
 let swReg = null;
-
-async function initServiceWorker() {
-  if (!('serviceWorker' in navigator)) return;
-  try {
-    swReg = await navigator.serviceWorker.register('/sw.js');
-    console.log('SW registered');
-  } catch(e) {
-    console.log('SW failed:', e);
-  }
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js')
+    .then(r => { swReg = r; console.log('SW OK'); })
+    .catch(e => console.log('SW error:', e));
 }
 
-// Notification permission request — aggressive
-async function requestNotifPermission() {
-  if (!('Notification' in window)) return;
-  if (Notification.permission === 'default') {
-    const perm = await Notification.requestPermission();
-    if (perm === 'granted') {
-      new Notification('Notifications ON!', {
-        body: 'You will now get alerts for new orders even on other tabs.',
-        icon: '/icon-192.png'
-      });
-    }
-  }
+// ===== NOTIFICATION PERMISSION =====
+if ('Notification' in window && Notification.permission === 'default') {
+  Notification.requestPermission();
 }
 
-// Init on load
-initServiceWorker();
-requestNotifPermission();
-
-// ===== VISIBILITY CHANGE — Fast polling when tab hidden =====
-let pollInterval = null;
-function startPolling(fast) {
-  if (pollInterval) clearInterval(pollInterval);
-  pollInterval = setInterval(async () => {
+// ===== POLLING — Start ONLY after lastOrderId is ready =====
+function startPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
     try {
       const orders = await fetch('/admin/api/new-orders?since=' + lastOrderId).then(r => r.json());
-      if (orders.length) {
+      if (orders && orders.length > 0) {
         lastOrderId = orders[0].id;
         showAlert(orders);
-        // Notify via Service Worker (works when browser minimized)
+        // Service Worker notification (browser minimize pe bhi)
         if (swReg && swReg.active) {
           swReg.active.postMessage({ type: 'NEW_ORDER', orders });
         }
+        // System notification
+        if ('Notification' in window && Notification.permission === 'granted') {
+          const n = new Notification('New Order!', {
+            body: orders.map(o => '#' + o.order_number + ' — Rs.' + o.total).join('\n'),
+            requireInteraction: true,
+            tag: 'foodbot-order'
+          });
+          n.onclick = () => { window.focus(); acceptOrder(); n.close(); };
+        }
       }
-    } catch(e) {}
-  }, fast ? 5000 : 8000);
+    } catch(e) { console.log('Poll error:', e); }
+  }, 6000); // every 6 seconds
 }
 
-// Start polling
-startPolling(false);
+// ===== INIT — Fetch lastOrderId FIRST, then start polling =====
+fetch('/admin/api/latest-order-id')
+  .then(r => r.json())
+  .then(d => {
+    lastOrderId = d.id || 0;
+    console.log('Polling started. lastOrderId =', lastOrderId);
+    startPolling();
+  })
+  .catch(() => {
+    lastOrderId = 0;
+    startPolling();
+  });
 
-// When user leaves tab — keep polling
-document.addEventListener('visibilitychange', () => {
-  startPolling(document.hidden); // faster when hidden
-});
+// BroadcastChannel — other tabs ko bhi alert karo
+try {
+  const bc = new BroadcastChannel('foodbot-orders');
+  bc.onmessage = (e) => { if(e.data && e.data.type === 'new-order') showAlert(e.data.orders); };
+  window._bc = bc;
+} catch(e){}
 </script>
