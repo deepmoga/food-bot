@@ -58,9 +58,10 @@ router.post('/vendors/create', async (req, res) => {
     await db.query('CALL setup_vendor_defaults(?)', [vendorId]);
     // Create trial subscription with 50 free messages (or super admin's chosen amount)
     const trialCount = parseInt(trial_messages) || 50;
+    // Trial expires in 1 month
     await db.query(
       `INSERT INTO vendor_subscriptions (vendor_id, plan_name, billing_type, messages_total, messages_used, start_date, end_date, status)
-       VALUES (?, 'Trial', 'trial', ?, 0, CURDATE(), NULL, 'active')`,
+       VALUES (?, 'Trial', 'trial', ?, 0, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 1 MONTH), 'active')`,
       [vendorId, trialCount]
     );
     res.redirect('/superadmin/vendors?success=1');
@@ -134,6 +135,23 @@ router.post('/vendors/:id/topup', async (req, res) => {
     );
   }
   res.redirect('/superadmin/vendors?success=1');
+});
+
+// PLATFORM SETTINGS
+router.get('/settings', async (req, res) => {
+  const { getPlatformSetting } = require('../helpers/platformSettings');
+  const rzpKeyId = await getPlatformSetting('platform_razorpay_key_id');
+  const rzpKeySecret = await getPlatformSetting('platform_razorpay_key_secret');
+  res.render('superadmin/views/settings', { rzpKeyId, rzpKeySecret, query: req.query });
+});
+
+router.post('/settings', async (req, res) => {
+  const { setPlatformSetting, clearPlatformCache } = require('../helpers/platformSettings');
+  const { platform_razorpay_key_id, platform_razorpay_key_secret } = req.body;
+  await setPlatformSetting('platform_razorpay_key_id', platform_razorpay_key_id || '');
+  await setPlatformSetting('platform_razorpay_key_secret', platform_razorpay_key_secret || '');
+  clearPlatformCache();
+  res.redirect('/superadmin/settings?saved=1');
 });
 
 // PLANS — list

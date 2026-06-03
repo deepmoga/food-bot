@@ -330,7 +330,8 @@ router.get('/subscription', async (req, res) => {
     'SELECT * FROM subscription_payments WHERE vendor_id=? ORDER BY id DESC LIMIT 20',
     [vendorId]
   );
-  const razorpayKeyId = process.env.PLATFORM_RAZORPAY_KEY_ID || '';
+  const { getPlatformSetting } = require('../helpers/platformSettings');
+  const razorpayKeyId = await getPlatformSetting('platform_razorpay_key_id');
   res.render('admin/views/subscription', { sub, plans, payments, features, razorpayKeyId, query: req.query });
 });
 
@@ -346,11 +347,13 @@ router.post('/subscription/create-order', async (req, res) => {
   const amount = billing_type === 'yearly' ? plan.price_yearly : plan.price_monthly;
   const messagesAdded = billing_type === 'yearly' ? plan.msg_count * 12 : plan.msg_count;
 
+  const { getPlatformSetting } = require('../helpers/platformSettings');
+  const rzpKeyId = await getPlatformSetting('platform_razorpay_key_id');
+  const rzpKeySecret = await getPlatformSetting('platform_razorpay_key_secret');
+  if (!rzpKeyId || !rzpKeySecret) return res.json({ error: 'Payment gateway not configured. Contact administrator.' });
+
   const Razorpay = require('razorpay');
-  const rzp = new Razorpay({
-    key_id: process.env.PLATFORM_RAZORPAY_KEY_ID,
-    key_secret: process.env.PLATFORM_RAZORPAY_KEY_SECRET
-  });
+  const rzp = new Razorpay({ key_id: rzpKeyId, key_secret: rzpKeySecret });
 
   try {
     const rzpOrder = await rzp.orders.create({
@@ -369,7 +372,7 @@ router.post('/subscription/create-order', async (req, res) => {
       order_id: rzpOrder.id,
       amount: rzpOrder.amount,
       currency: 'INR',
-      key_id: process.env.PLATFORM_RAZORPAY_KEY_ID,
+      key_id: rzpKeyId,
       plan_name: `${plan.name} (${billing_type})`,
       payment_id: result.insertId
     });
@@ -385,7 +388,8 @@ router.post('/subscription/verify', async (req, res) => {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature, payment_id } = req.body;
 
   const crypto = require('crypto');
-  const secret = process.env.PLATFORM_RAZORPAY_KEY_SECRET || '';
+  const { getPlatformSetting } = require('../helpers/platformSettings');
+  const secret = await getPlatformSetting('platform_razorpay_key_secret');
   const expected = crypto.createHmac('sha256', secret)
     .update(`${razorpay_order_id}|${razorpay_payment_id}`)
     .digest('hex');
