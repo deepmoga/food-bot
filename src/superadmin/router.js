@@ -56,6 +56,13 @@ router.post('/vendors/create', async (req, res) => {
     const [result] = await db.query('INSERT INTO vendors (name, email, password) VALUES (?,?,?)', [name, email, hashed]);
     const vendorId = result.insertId;
     await db.query('CALL setup_vendor_defaults(?)', [vendorId]);
+    // Auto-generate unique verify token for this vendor
+    const crypto = require('crypto');
+    const uniqueVerifyToken = 'fb_verify_' + crypto.randomBytes(16).toString('hex');
+    await db.query(
+      "UPDATE settings SET setting_value=? WHERE vendor_id=? AND setting_key='verify_token'",
+      [uniqueVerifyToken, vendorId]
+    );
     // Create trial subscription with 50 free messages (or super admin's chosen amount)
     const trialCount = parseInt(trial_messages) || 50;
     // Trial expires in 1 month
