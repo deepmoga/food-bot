@@ -216,18 +216,48 @@ function showAlert(orders) {
   ).join('<br>');
   document.getElementById('newOrderAlert').style.display = 'block';
   document.getElementById('newOrderOverlay').style.display = 'block';
+  document.title = '🔔 NEW ORDER! — Admin';
   playBeep();
   if(beepInterval) clearInterval(beepInterval);
   beepInterval = setInterval(playBeep, 4000);
-  if('Notification' in window && Notification.permission==='granted') {
-    new Notification('🔔 Naya Order!', {body: orders.map(o=>`#${o.order_number} — ₹${o.total}`).join('\n')});
+
+  // System notification — works even when browser minimized/other tab
+  if('Notification' in window) {
+    if(Notification.permission === 'granted') {
+      const n = new Notification('🔔 Naya Order Aaya!', {
+        body: orders.map(o=>`#${o.order_number} — Rs.${o.total} — ${o.customer_name||''}`).join('\n'),
+        icon: '/favicon.ico',
+        requireInteraction: true,  // stays until clicked
+        tag: 'new-order'
+      });
+      n.onclick = () => { window.focus(); n.close(); acceptOrder(); };
+    } else if(Notification.permission !== 'denied') {
+      Notification.requestPermission().then(p => {
+        if(p === 'granted') showAlert(orders);
+      });
+    }
   }
+
+  // BroadcastChannel — notify ALL open tabs
+  try {
+    const bc = new BroadcastChannel('foodbot-orders');
+    bc.postMessage({ type: 'new-order', orders });
+  } catch(e){}
 }
+
+// Listen for alerts from other tabs
+try {
+  const bc = new BroadcastChannel('foodbot-orders');
+  bc.onmessage = (e) => {
+    if(e.data.type === 'new-order') showAlert(e.data.orders);
+  };
+} catch(e){}
 
 function acceptOrder() {
   if(beepInterval){ clearInterval(beepInterval); beepInterval=null; }
   document.getElementById('newOrderAlert').style.display='none';
   document.getElementById('newOrderOverlay').style.display='none';
+  document.title = 'Orders — Admin';
   location.reload();
 }
 

@@ -1,7 +1,7 @@
 const db = require('../../config/db');
 const { getSession, updateSession, getCart, saveCart } = require('../../helpers/session');
 const { getSetting } = require('../../helpers/settings');
-const { sendWhatsApp, sendButtonMessage, sendListMessage } = require('../../helpers/whatsapp');
+const { sendWhatsApp, sendButtonMessage, sendListMessage, sendLocationRequest } = require('../../helpers/whatsapp');
 const { cartTotal, orderBreakdown } = require('../../helpers/gst');
 const { cartSummary } = require('../../helpers/order');
 const { calculateDeliveryCharge } = require('../../helpers/geo');
@@ -149,7 +149,8 @@ async function handleButton(replyId, replyTitle, phone, vendorId) {
     return;
   }
   if (replyId === 'btn_location') {
-    await sendWhatsApp(phone, '📍 Please share your *live location* using the attachment button.', vendorId);
+    // Fix 2: Direct WhatsApp location picker
+    await sendLocationRequest(phone, 'Please share your delivery location by tapping the button below:', vendorId);
     return;
   }
 
@@ -232,11 +233,22 @@ async function sendCartSummaryButtons(phone, cart, vendorId) {
 async function showCartEdit(phone, session, vendorId) {
   const cart = typeof session.cart === 'string' ? JSON.parse(session.cart) : (session.cart || []);
   if (!cart.length) {
-    await sendWhatsApp(phone, '🛒 Cart is empty.', vendorId);
+    await sendWhatsApp(phone, 'Cart is empty. Send *menu* to order.', vendorId);
     return;
   }
-  const lines = cart.map((item, i) => `${i + 1}. ${item.name} x${item.qty}`).join('\n');
-  await sendWhatsApp(phone, `✏️ *Edit Cart*\n\n${lines}\n\nTo edit, reply with:\n• *edit 1* — change qty of item 1\n• *remove 2* — remove item 2\n\nOr proceed to checkout:`, vendorId);
+  await updateSession(phone, vendorId, { state: 'EDIT_CART' });
+  const lines = cart.map((item, i) => {
+    const addonPrice = (item.addons || []).reduce((s, a) => s + a.price, 0);
+    const total = (item.price + addonPrice) * item.qty;
+    return `*${i + 1}.* ${item.name} x${item.qty} — Rs.${total.toFixed(0)}`;
+  }).join('\n');
+  await sendWhatsApp(phone,
+    `*Edit Cart*\n\n${lines}\n\n` +
+    `Reply:\n` +
+    `*edit 1* — item 1 ki qty badlo\n` +
+    `*remove 1* — item 1 hatao\n` +
+    `*confirm* — checkout karo`,
+    vendorId);
 }
 
 async function askAddress(phone, session, vendorId) {

@@ -35,7 +35,12 @@ async function handleTextState(phone, text, vendorId) {
   if (lower === 'cancel') {
     const { resetSession } = require('../../helpers/session');
     await resetSession(phone, vendorId);
-    await sendWhatsApp(phone, '❌ Order cancelled. Send *menu* to start again.', vendorId);
+    await sendWhatsApp(phone, 'Order cancelled. Send *menu* to start again.', vendorId);
+    return;
+  }
+  if (lower === 'confirm' && (state === 'EDIT_CART' || state === 'CATEGORY_SELECT')) {
+    await updateSession(phone, vendorId, { state: 'GET_NAME' });
+    await sendWhatsApp(phone, 'Please enter your *full name* for the order:', vendorId);
     return;
   }
   if (lower === 'timings') {

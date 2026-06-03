@@ -75,6 +75,31 @@ async function sendListMessage(to, header, body, footer, buttonLabel, sections, 
   }
 }
 
+// Fix 2: Direct WhatsApp location picker button
+async function sendLocationRequest(to, bodyText, vendorId) {
+  const { token, phoneId } = await getWAConfig(vendorId);
+  try {
+    await axios.post(
+      `${BASE_URL}/${phoneId}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        to,
+        type: 'interactive',
+        interactive: {
+          type: 'location_request_message',
+          body: { text: bodyText },
+          action: { name: 'send_location' }
+        }
+      },
+      { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+    );
+    await logMessage(to, 'out', '[LOCATION REQUEST]', vendorId);
+  } catch (e) {
+    // Fallback if location_request_message not supported
+    await sendWhatsApp(to, bodyText + '\n\nPlease use the attachment button (paperclip) to share your location.', vendorId);
+  }
+}
+
 async function logMessage(phone, direction, message, vendorId) {
   try {
     await db.query(
@@ -84,4 +109,4 @@ async function logMessage(phone, direction, message, vendorId) {
   } catch (_) {}
 }
 
-module.exports = { sendWhatsApp, sendButtonMessage, sendListMessage, logMessage };
+module.exports = { sendWhatsApp, sendButtonMessage, sendListMessage, sendLocationRequest, logMessage };
