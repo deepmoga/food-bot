@@ -34,7 +34,7 @@ async function createOrder(session, cart, breakdown, vendorId) {
       breakdown.subtotal, breakdown.discount, breakdown.delivery, breakdown.gst, breakdown.total,
       session.payment_method,
       session.payment_method === 'cod' ? 'cod_pending' : 'pending',
-      session.payment_method === 'cod' ? 'confirmed' : 'waiting',
+      'waiting',
       session.temp_address, session.temp_lat, session.temp_lng, session.temp_dist,
       session.pending_coupon || null,
       billToken

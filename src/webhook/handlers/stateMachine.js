@@ -112,8 +112,8 @@ async function handleTextState(phone, text, vendorId) {
 
     case 'GET_PHONE': {
       const digits = text.replace(/\D/g, '');
-      if (digits.length < 10) { await sendWhatsApp(phone, '❌ Please enter a valid mobile number.', vendorId); return; }
-      await updateSession(phone, vendorId, { customer_phone: digits.slice(-10), state: 'DELIVERY_TYPE' });
+      if (digits.length !== 10) { await sendWhatsApp(phone, '❌ Please enter a valid *10-digit* mobile number.\n\nExample: *9876543210*', vendorId); return; }
+      await updateSession(phone, vendorId, { customer_phone: digits, state: 'DELIVERY_TYPE' });
 
       const cart = typeof session.cart === 'string' ? JSON.parse(session.cart) : session.cart;
       const couponEnabled = await isFeatureEnabled('coupon_system', vendorId);
