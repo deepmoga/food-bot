@@ -145,8 +145,13 @@ input:focus,select:focus,textarea:focus{border-color:#6366f1}
               <% }) %>
             <% } catch(e) {} %>
           </td>
-          <td>
+          <td style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
             <button class="btn btn-ghost" onclick="previewTemplate(<%- JSON.stringify(t) %>)">👁️</button>
+            <% if(t.status === 'draft' || t.status === 'rejected'){ %>
+            <form method="POST" action="/superadmin/templates/<%= t.id %>/resubmit" style="display:inline">
+              <button type="submit" class="btn btn-amber" style="font-size:11px;padding:5px 9px">🔁 Resubmit</button>
+            </form>
+            <% } %>
             <form method="POST" action="/superadmin/templates/<%= t.id %>/delete" style="display:inline"
               onsubmit="return confirm('Template delete karo? Meta se bhi remove ho jayega.')">
               <button type="submit" class="btn btn-red">🗑️</button>

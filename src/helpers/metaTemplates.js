@@ -18,10 +18,10 @@ function buildComponents(tpl) {
 
   // HEADER
   if (tpl.header_type === 'image') {
+    // No example needed for IMAGE header — Meta accepts without it
     components.push({
       type: 'HEADER',
-      format: 'IMAGE',
-      example: { header_handle: ['https://via.placeholder.com/800x400'] }
+      format: 'IMAGE'
     });
   } else if (tpl.header_type === 'text' && tpl.header_text) {
     components.push({

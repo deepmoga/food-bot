@@ -275,6 +275,24 @@ router.post('/templates/sync', async (req, res) => {
   }
 });
 
+// Resubmit draft template to Meta
+router.post('/templates/:id/resubmit', async (req, res) => {
+  const [[tpl]] = await db.query('SELECT * FROM broadcast_templates WHERE id=?', [req.params.id]);
+  if (!tpl) return res.redirect('/superadmin/templates');
+  try {
+    const { submitTemplate } = require('../helpers/metaTemplates');
+    const metaRes = await submitTemplate(tpl);
+    await db.query(
+      "UPDATE broadcast_templates SET meta_template_id=?, status='pending' WHERE id=?",
+      [metaRes.id || tpl.meta_name, req.params.id]
+    );
+    res.redirect('/superadmin/templates?success=submitted');
+  } catch (e) {
+    const errMsg = e.response?.data?.error?.message || e.message;
+    res.redirect('/superadmin/templates?error=' + encodeURIComponent(errMsg));
+  }
+});
+
 // Delete template (DB + Meta)
 router.post('/templates/:id/delete', async (req, res) => {
   const [[tpl]] = await db.query('SELECT * FROM broadcast_templates WHERE id=?', [req.params.id]);
