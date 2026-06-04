@@ -100,7 +100,9 @@ select.form-control{cursor:pointer}
     <% if(locals.features && features.bill_generation){ %>
     <a href="/admin/bills" class="<%= page==='bills'?'active':'' %>"><span class="icon">🧾</span> Bills</a>
     <% } %>
+    <% if(locals.features && features.broadcast){ %>
     <a href="/admin/broadcast" class="<%= page==='broadcast'?'active':'' %>"><span class="icon">📢</span> Broadcast</a>
+    <% } %>
     <a href="/admin/settings" class="<%= page==='settings'?'active':'' %>"><span class="icon">⚙️</span> Settings</a>
     <a href="/admin/subscription" class="<%= page==='subscription'?'active':'' %>" style="border-top:1px solid #e5e7eb;margin-top:8px;padding-top:18px"><span class="icon">💬</span> Subscription</a>
   </nav>

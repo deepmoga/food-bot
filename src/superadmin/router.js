@@ -4,7 +4,7 @@ const bcrypt = require('bcrypt');
 const db = require('../config/db');
 const { requireSuperAuth } = require('./middleware/auth');
 
-const FEATURE_KEYS = ['coupon_system','online_payment','delivery_boys','gst','bill_generation','review_request','store_schedule'];
+const FEATURE_KEYS = ['coupon_system','online_payment','delivery_boys','gst','bill_generation','review_request','store_schedule','broadcast'];
 const FEATURE_LABELS = {
   coupon_system: '🏷️ Coupon System',
   online_payment: '💳 Online Payment',
@@ -12,7 +12,8 @@ const FEATURE_LABELS = {
   gst: '📊 GST',
   bill_generation: '🧾 Bill Generation',
   review_request: '⭐ Review Request',
-  store_schedule: '🕐 Store Schedule'
+  store_schedule: '🕐 Store Schedule',
+  broadcast: '📢 Broadcast (WhatsApp Marketing)'
 };
 
 // LOGIN

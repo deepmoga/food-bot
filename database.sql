@@ -277,7 +277,7 @@ BEGIN
     (vid, 'bill_footer_text',     'Thank you for ordering!',  'Footer text on bill'),
     (vid, 'review_after_minutes', '60',                       'Send review request after N minutes of delivery');
 
-  -- Default features (all enabled)
+  -- Default features (all enabled, broadcast OFF by default)
   INSERT IGNORE INTO vendor_features (vendor_id, feature_key, is_enabled) VALUES
     (vid, 'coupon_system',    1),
     (vid, 'online_payment',   1),
@@ -285,7 +285,8 @@ BEGIN
     (vid, 'gst',              1),
     (vid, 'bill_generation',  1),
     (vid, 'review_request',   1),
-    (vid, 'store_schedule',   1);
+    (vid, 'store_schedule',   1),
+    (vid, 'broadcast',        0);
 
   -- Default store schedule (Mon-Sat open, Sun closed)
   INSERT IGNORE INTO store_schedule (vendor_id, day_of_week, day_name, is_open, open_time, close_time) VALUES
