@@ -32,7 +32,10 @@ function buildComponents(tpl) {
   }
 
   // BODY — strip bold markdown from variables (Meta API issue)
-  const cleanBody = tpl.body_text.replace(/\*(\{\{[0-9]+\}\})\*/g, '$1');
+  let cleanBody = tpl.body_text.replace(/\*(\{\{[0-9]+\}\})\*/g, '$1').trim();
+  // Meta rule: variable cannot be at START or END of body
+  if (/^\{\{[0-9]+\}\}/.test(cleanBody)) cleanBody = 'Namaste! ' + cleanBody;
+  if (/\{\{[0-9]+\}\}\s*$/.test(cleanBody)) cleanBody = cleanBody + '\n\nHumse zaroor order karo! 🙏';
   const variables = JSON.parse(tpl.variables_json || '[]');
   const bodyComp = { type: 'BODY', text: cleanBody };
   // Always include examples when variables exist
