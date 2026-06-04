@@ -1,0 +1,222 @@
+<%
+const page = 'broadcast';
+const title = 'Broadcast';
+const body = `
+<div class="page-header">
+  <h1>📢 Broadcast</h1>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px 16px;font-size:13px">
+      💳 Credits: <strong style="font-size:16px;color:#1db954">${credits}</strong>
+    </div>
+  </div>
+</div>
+
+${locals.query && locals.query.success ? '<div class="alert alert-success">✅ Broadcast campaign shuru ho gayi!</div>' : ''}
+${locals.query && locals.query.error ? '<div class="alert alert-error">❌ ' + decodeURIComponent(locals.query.error) + '</div>' : ''}
+
+${credits === 0 ? `
+<div style="background:#fff3cd;border:1px solid #f59e0b;border-radius:10px;padding:16px;margin-bottom:20px;font-size:13px">
+  ⚠️ <strong>Credits khatam ho gaye!</strong> Broadcast bhejne ke liye credits kharido ya apne admin se contact karo.
+</div>` : ''}
+
+${approvedTemplates.length === 0 ? `
+<div style="background:#fee2e2;border:1px solid #ef4444;border-radius:10px;padding:16px;margin-bottom:20px;font-size:13px">
+  ❌ Abhi koi approved template nahi hai. Platform admin se contact karo.
+</div>` : ''}
+
+<div style="display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:start">
+
+<!-- Left: Form -->
+<div>
+  <form method="POST" action="/admin/broadcast/send" id="broadcastForm" enctype="multipart/form-data">
+
+    <!-- Step 1: Template -->
+    <div class="card" style="padding:20px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px;color:#374151">Step 1 — Template Chuno</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${approvedTemplates.map(t => `
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:1.5px solid #e5e7eb;border-radius:10px;cursor:pointer;transition:.15s" id="tpl_label_${t.id}">
+          <input type="radio" name="template_id" value="${t.id}" data-vars='${t.variables_json}' data-header="${t.header_type}" style="width:auto;margin-top:2px" onchange="onTemplateChange(this)" required>
+          <div>
+            <div style="font-weight:600;font-size:13px">${t.header_type === 'image' ? '🖼️' : '📝'} ${t.display_name}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:2px;white-space:pre-wrap">${t.body_text.substring(0,100)}...</div>
+          </div>
+        </label>`).join('')}
+        ${approvedTemplates.length === 0 ? '<div style="color:#9ca3af;font-size:13px">Koi approved template nahi</div>' : ''}
+      </div>
+    </div>
+
+    <!-- Step 2: Variables -->
+    <div class="card" style="padding:20px;margin-bottom:16px" id="variablesSection" style="display:none">
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px;color:#374151">Step 2 — Content Fill Karo</div>
+      <div id="variableFields"></div>
+      <div id="imageUploadField" style="display:none;margin-top:12px">
+        <div class="form-group">
+          <label>Offer Image URL <span style="color:#e53935">*</span></label>
+          <input type="url" name="image_url" id="imageUrl" class="form-control" placeholder="https://example.com/offer.jpg" oninput="updatePreview()">
+          <div style="font-size:11px;color:#6b7280;margin-top:3px">Public image URL daalo (Google Drive, Imgur, etc.)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: Recipients -->
+    <div class="card" style="padding:20px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px;color:#374151">Step 3 — Customers Select Karo</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${[
+          ['all', 'Sab Customers', recipientCounts.all],
+          ['last_30', 'Last 30 din active', recipientCounts.last_30],
+          ['last_7', 'Last 7 din active', recipientCounts.last_7],
+          ['ordered_3plus', '3+ orders wale (Loyal)', recipientCounts.ordered_3plus]
+        ].map(([val, label, count]) => `
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid #e5e7eb;border-radius:10px;cursor:pointer" onclick="updateCreditEstimate()">
+          <input type="radio" name="recipient_filter" value="${val}" ${val==='last_30'?'checked':''} style="width:auto" onchange="updateCreditEstimate()">
+          <span style="flex:1;font-size:13px;font-weight:500">${label}</span>
+          <span style="background:#f3f4f6;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600">${count} customers</span>
+        </label>`).join('')}
+      </div>
+    </div>
+
+    <!-- Step 4: Preview + Send -->
+    <div class="card" style="padding:20px;background:#f9fafb">
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px;color:#374151">Step 4 — Confirm karo</div>
+      <div id="creditEstimate" style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;font-size:13px;margin-bottom:14px">
+        <div>Recipients: <strong id="estCount">—</strong></div>
+        <div style="margin-top:4px">Credits needed: <strong id="estCredits" style="color:#6366f1">—</strong></div>
+        <div style="margin-top:4px">Credits available: <strong style="color:#1db954">${credits}</strong></div>
+        <div id="notEnoughWarning" style="display:none;color:#e53935;margin-top:6px;font-size:12px">⚠️ Enough credits nahi hain!</div>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;padding:12px;font-size:14px;justify-content:center" id="sendBtn"
+        ${credits === 0 || approvedTemplates.length === 0 ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>
+        🚀 Broadcast Bhejo
+      </button>
+    </div>
+
+  </form>
+</div>
+
+<!-- Right: Live Preview -->
+<div style="position:sticky;top:20px">
+  <div class="card" style="padding:16px">
+    <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:10px">📱 WhatsApp Preview</div>
+    <div style="background:#e5ddd5;border-radius:12px;padding:12px;min-height:200px">
+      <div id="waPreview" style="background:#fff;border-radius:10px;padding:12px;font-size:13px;line-height:1.6;max-width:280px;box-shadow:0 1px 2px rgba(0,0,0,.1)">
+        <div style="color:#9ca3af;font-style:italic">Template select karo...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<!-- Campaign History -->
+<div class="card" style="margin-top:20px">
+  <div style="padding:16px 20px;font-weight:700;font-size:14px;border-bottom:1px solid #e5e7eb">📊 Campaign History</div>
+  ${campaigns.length === 0 ? '<div style="padding:30px;text-align:center;color:#6b7280">Abhi koi campaign nahi</div>' : `
+  <table>
+    <thead><tr><th>Template</th><th>Recipients</th><th>Sent</th><th>Failed</th><th>Credits</th><th>Status</th><th>Date</th></tr></thead>
+    <tbody>
+    ${campaigns.map(c => `
+    <tr>
+      <td><strong>${c.template_name || '—'}</strong></td>
+      <td>${c.recipient_count}</td>
+      <td style="color:#1db954;font-weight:600">${c.sent_count}</td>
+      <td style="color:#e53935">${c.failed_count}</td>
+      <td>${c.credits_used}</td>
+      <td><span class="badge badge-${c.status==='done'?'delivered':c.status==='sending'?'confirmed':'pending'}">${c.status}</span></td>
+      <td style="font-size:12px;color:#6b7280">${new Date(c.created_at).toLocaleDateString('en-IN')}</td>
+    </tr>`).join('')}
+    </tbody>
+  </table>`}
+</div>
+`;
+%>
+
+<%- include('layout', {body, page, title, features, query: locals.query}) %>
+
+<script>
+const recipientCounts = <%- JSON.stringify(recipientCounts) %>;
+const availableCredits = <%= credits %>;
+
+function onTemplateChange(radio) {
+  const vars = JSON.parse(radio.dataset.vars || '[]');
+  const headerType = radio.dataset.header;
+  const section = document.getElementById('variablesSection');
+  const fieldsDiv = document.getElementById('variableFields');
+  const imgField = document.getElementById('imageUploadField');
+
+  section.style.display = 'block';
+  imgField.style.display = headerType === 'image' ? 'block' : 'none';
+
+  fieldsDiv.innerHTML = vars.map((v, i) => `
+    <div class="form-group">
+      <label>${v.name} <span style="color:#6366f1;font-size:11px">{{${i+1}}}</span></label>
+      <input type="text" name="var_${i}" class="form-control var-input" placeholder="e.g. ${v.example || ''}"
+        oninput="updatePreview()" required>
+    </div>
+  `).join('');
+
+  // Highlight selected
+  document.querySelectorAll('[id^="tpl_label_"]').forEach(l => l.style.borderColor = '#e5e7eb');
+  const lbl = document.getElementById('tpl_label_' + radio.value);
+  if(lbl) lbl.style.borderColor = '#1db954';
+
+  updatePreview();
+  updateCreditEstimate();
+}
+
+function updatePreview() {
+  const radio = document.querySelector('input[name="template_id"]:checked');
+  if (!radio) return;
+  const vars = JSON.parse(radio.dataset.vars || '[]');
+  const headerType = radio.dataset.header;
+  const inputs = document.querySelectorAll('.var-input');
+  const imageUrl = document.getElementById('imageUrl')?.value;
+
+  let html = '';
+  if (headerType === 'image' && imageUrl) {
+    html += '<img src="'+imageUrl+'" style="width:100%;border-radius:6px;margin-bottom:8px" onerror="this.style.display=\'none\'">';
+  } else if (headerType === 'image') {
+    html += '<div style="background:#e5e7eb;border-radius:6px;height:80px;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:12px;margin-bottom:8px">🖼️ Image yahan ayegi</div>';
+  }
+
+  // Get selected template body text
+  const tplLabel = document.getElementById('tpl_label_' + radio.value);
+  // Get body from template data
+  const tplData = window.templateBodies && window.templateBodies[radio.value];
+  let body = tplData || 'Template body...';
+
+  inputs.forEach((inp, i) => {
+    const val = inp.value || ('{{' + (i+1) + '}}');
+    body = body.replace(new RegExp('\\\\*?\\{\\{' + (i+1) + '\\}\\}\\\\*?', 'g'), val);
+  });
+
+  html += '<div style="white-space:pre-wrap">'+body+'</div>';
+  html += '<div style="font-size:10px;color:#9ca3af;margin-top:6px;text-align:right">✓✓ Delivered</div>';
+  document.getElementById('waPreview').innerHTML = html;
+}
+
+function updateCreditEstimate() {
+  const radio = document.querySelector('input[name="recipient_filter"]:checked');
+  if (!radio) return;
+  const count = recipientCounts[radio.value] || 0;
+  document.getElementById('estCount').textContent = count + ' customers';
+  document.getElementById('estCredits').textContent = count + ' credits';
+  const notEnough = document.getElementById('notEnoughWarning');
+  if (count > availableCredits) {
+    notEnough.style.display = 'block';
+    document.getElementById('sendBtn').disabled = true;
+  } else {
+    notEnough.style.display = 'none';
+    document.getElementById('sendBtn').disabled = availableCredits === 0;
+  }
+}
+
+// Store template bodies for preview
+window.templateBodies = {};
+<% approvedTemplates.forEach(t => { %>
+window.templateBodies['<%= t.id %>'] = `<%- t.body_text.replace(/`/g, '\\`') %>`;
+<% }) %>
+
+updateCreditEstimate();
+</script>

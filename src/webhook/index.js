@@ -98,6 +98,13 @@ router.post('/', async (req, res) => {
       return;
     }
 
+    // STOP — opt out from broadcast
+    if (msgText && msgText.trim().toUpperCase() === 'STOP') {
+      await db.query('INSERT IGNORE INTO broadcast_optouts (vendor_id, phone) VALUES (?,?)', [vendorId, phone]);
+      await require('../helpers/whatsapp').sendWhatsApp(phone, 'Aapko broadcast list se remove kar diya gaya hai. ✅\n\nWapas join karne ke liye "START" bhejein.', vendorId);
+      return;
+    }
+
     // Text state machine
     if (msgText) {
       await handleTextState(phone, msgText, vendorId);

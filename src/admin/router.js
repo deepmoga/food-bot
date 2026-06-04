@@ -435,6 +435,82 @@ router.post('/subscription/verify', async (req, res) => {
   res.json({ success: true });
 });
 
+// --- BROADCAST ---
+router.get('/broadcast', async (req, res) => {
+  const vendorId = req.session.vendorId;
+  const features = await getFeatures(vendorId);
+  const { countRecipients } = require('../helpers/broadcast');
+
+  const [[credRow]] = await db.query(
+    'SELECT COALESCE(balance,0) as balance FROM broadcast_credits WHERE vendor_id=?', [vendorId]
+  );
+  const credits = credRow?.balance || 0;
+
+  const [approvedTemplates] = await db.query(
+    "SELECT * FROM broadcast_templates WHERE status='approved' ORDER BY display_name"
+  );
+
+  const [campaigns] = await db.query(
+    'SELECT bc.*, bt.display_name as template_name FROM broadcast_campaigns bc LEFT JOIN broadcast_templates bt ON bt.id=bc.template_id WHERE bc.vendor_id=? ORDER BY bc.id DESC LIMIT 20',
+    [vendorId]
+  );
+
+  const recipientCounts = {
+    all: await countRecipients(vendorId, 'all'),
+    last_30: await countRecipients(vendorId, 'last_30'),
+    last_7: await countRecipients(vendorId, 'last_7'),
+    ordered_3plus: await countRecipients(vendorId, 'ordered_3plus')
+  };
+
+  res.render('admin/views/broadcast', { features, credits, approvedTemplates, campaigns, recipientCounts, query: req.query });
+});
+
+router.post('/broadcast/send', async (req, res) => {
+  const vendorId = req.session.vendorId;
+  const { template_id, recipient_filter, image_url } = req.body;
+
+  try {
+    const [[tpl]] = await db.query("SELECT * FROM broadcast_templates WHERE id=? AND status='approved'", [template_id]);
+    if (!tpl) return res.redirect('/admin/broadcast?error=Template+not+found');
+
+    const [[credRow]] = await db.query('SELECT COALESCE(balance,0) as balance FROM broadcast_credits WHERE vendor_id=?', [vendorId]);
+    const credits = credRow?.balance || 0;
+
+    const { countRecipients, getRecipients } = require('../helpers/broadcast');
+    const recipientCount = await countRecipients(vendorId, recipient_filter || 'all');
+
+    if (recipientCount > credits) {
+      return res.redirect('/admin/broadcast?error=' + encodeURIComponent('Enough credits nahi hain. ' + recipientCount + ' credits chahiye, ' + credits + ' available hain.'));
+    }
+
+    // Collect variable values
+    const vars = JSON.parse(tpl.variables_json || '[]');
+    const variableValues = vars.map((_, i) => req.body[`var_${i}`] || '');
+
+    // Create campaign record
+    const [result] = await db.query(
+      `INSERT INTO broadcast_campaigns (vendor_id, template_id, template_name, variable_values, image_url, recipient_filter, recipient_count, credits_used, status)
+       VALUES (?,?,?,?,?,?,?,?,'pending')`,
+      [vendorId, tpl.id, tpl.display_name, JSON.stringify(variableValues), image_url || null, recipient_filter || 'all', recipientCount, recipientCount]
+    );
+    const campaignId = result.insertId;
+
+    // Deduct credits immediately
+    await db.query(
+      'UPDATE broadcast_credits SET balance=balance-?, total_used=total_used+? WHERE vendor_id=?',
+      [recipientCount, recipientCount, vendorId]
+    );
+
+    // Run campaign in background (don't await)
+    const { runCampaign } = require('../helpers/broadcast');
+    runCampaign(campaignId).catch(e => console.error('[Broadcast] Campaign error:', e.message));
+
+    res.redirect('/admin/broadcast?success=1');
+  } catch (e) {
+    res.redirect('/admin/broadcast?error=' + encodeURIComponent(e.message));
+  }
+});
+
 // --- BILLS ---
 router.get('/bills', async (req, res) => {
   const vendorId = req.session.vendorId;

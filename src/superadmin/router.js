@@ -42,9 +42,14 @@ router.get('/', async (req, res) => {
 router.get('/vendors', async (req, res) => {
   const [vendors] = await db.query('SELECT * FROM vendors ORDER BY id DESC');
   const [subs] = await db.query('SELECT * FROM vendor_subscriptions');
-  const subMap = {};
+  const [credits] = await db.query('SELECT * FROM broadcast_credits');
+  const subMap = {}, creditMap = {};
   for (const s of subs) subMap[s.vendor_id] = s;
-  for (const v of vendors) v.sub = subMap[v.id] || null;
+  for (const c of credits) creditMap[c.vendor_id] = c.balance;
+  for (const v of vendors) {
+    v.sub = subMap[v.id] || null;
+    v.broadcast_credits = creditMap[v.id] || 0;
+  }
   res.render('superadmin/views/vendors', { vendors, error: null, success: null, query: req.query });
 });
 
@@ -121,6 +126,26 @@ router.post('/vendors/:id/features', async (req, res) => {
     );
   }
   res.redirect(`/superadmin/vendors/${vendorId}/features?saved=1`);
+});
+
+// MANUAL BROADCAST CREDITS ADD
+router.post('/vendors/:id/add-credits', async (req, res) => {
+  const vendorId = req.params.id;
+  const credits = parseInt(req.body.credits) || 0;
+  const note = req.body.note || 'Manual add by super admin';
+  if (credits > 0) {
+    await db.query(
+      `INSERT INTO broadcast_credits (vendor_id, balance, total_bought) VALUES (?,?,?)
+       ON DUPLICATE KEY UPDATE balance=balance+?, total_bought=total_bought+?`,
+      [vendorId, credits, credits, credits, credits]
+    );
+    await db.query(
+      `INSERT INTO credit_purchases (vendor_id, credits, amount, status, added_by, note)
+       VALUES (?,?,0,'paid','manual',?)`,
+      [vendorId, credits, note]
+    );
+  }
+  res.redirect('/superadmin/vendors?success=1');
 });
 
 // MANUAL TOP-UP — add messages to a vendor
