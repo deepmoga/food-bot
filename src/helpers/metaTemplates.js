@@ -65,19 +65,32 @@ async function submitTemplate(tpl) {
   const { wabaId, token } = await getMetaConfig();
   if (!wabaId || !token) throw new Error('WABA ID ya Token set nahi hai platform settings mein');
 
+  const components = buildComponents(tpl);
   const payload = {
     name: tpl.meta_name,
     language: tpl.language || 'en',
     category: tpl.category || 'MARKETING',
-    components: buildComponents(tpl)
+    components
   };
 
-  const res = await axios.post(
-    `${BASE}/${wabaId}/message_templates`,
-    payload,
-    { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
-  );
-  return res.data; // { id, status }
+  console.log('[Templates] Submitting payload:', JSON.stringify(payload, null, 2));
+
+  try {
+    const res = await axios.post(
+      `${BASE}/${wabaId}/message_templates`,
+      payload,
+      { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+    );
+    console.log('[Templates] Meta response:', res.data);
+    return res.data;
+  } catch (e) {
+    const metaError = e.response?.data?.error;
+    console.error('[Templates] Meta error full:', JSON.stringify(e.response?.data, null, 2));
+    const msg = metaError
+      ? `Meta Error ${metaError.code}: ${metaError.message}${metaError.error_data ? ' | ' + JSON.stringify(metaError.error_data) : ''}`
+      : e.message;
+    throw new Error(msg);
+  }
 }
 
 // Fetch all templates from Meta and sync status
