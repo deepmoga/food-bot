@@ -31,12 +31,15 @@ function buildComponents(tpl) {
     });
   }
 
-  // BODY
+  // BODY — strip bold markdown from variables (Meta API issue)
+  const cleanBody = tpl.body_text.replace(/\*(\{\{[0-9]+\}\})\*/g, '$1');
   const variables = JSON.parse(tpl.variables_json || '[]');
-  const bodyExamples = variables.map(v => v.example || 'Sample text');
-  const bodyComp = { type: 'BODY', text: tpl.body_text };
-  if (bodyExamples.length > 0) {
-    bodyComp.example = { body_text: [bodyExamples] };
+  const bodyComp = { type: 'BODY', text: cleanBody };
+  // Always include examples when variables exist
+  const varMatches = cleanBody.match(/\{\{[0-9]+\}\}/g) || [];
+  if (varMatches.length > 0) {
+    const examplesArr = varMatches.map((_, i) => variables[i]?.example || `sample${i+1}`);
+    bodyComp.example = { body_text: [examplesArr] };
   }
   components.push(bodyComp);
 
@@ -105,15 +108,11 @@ async function syncTemplatesFromMeta() {
   return res.data?.data || [];
 }
 
-// Delete template from Meta
-async function deleteMetaTemplate(metaTemplateId, token) {
-  if (!token) {
-    const cfg = await getMetaConfig();
-    token = cfg.token;
-  }
-  const { wabaId } = await getMetaConfig();
+// Delete template from Meta (by template name)
+async function deleteMetaTemplate(templateName) {
+  const { wabaId, token } = await getMetaConfig();
   await axios.delete(
-    `${BASE}/${wabaId}/message_templates?name=${metaTemplateId}`,
+    `${BASE}/${wabaId}/message_templates?name=${encodeURIComponent(templateName)}`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
 }

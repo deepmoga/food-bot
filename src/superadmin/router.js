@@ -280,7 +280,15 @@ router.post('/templates/:id/resubmit', async (req, res) => {
   const [[tpl]] = await db.query('SELECT * FROM broadcast_templates WHERE id=?', [req.params.id]);
   if (!tpl) return res.redirect('/superadmin/templates');
   try {
-    const { submitTemplate } = require('../helpers/metaTemplates');
+    const { submitTemplate, deleteMetaTemplate } = require('../helpers/metaTemplates');
+    // Try to delete from Meta first (in case it exists in pending state)
+    try {
+      await deleteMetaTemplate(tpl.meta_name);
+      console.log('[Templates] Deleted existing template from Meta before resubmit');
+      await new Promise(r => setTimeout(r, 2000)); // Wait 2s after delete
+    } catch (_) {
+      // Ignore delete errors — might not exist
+    }
     const metaRes = await submitTemplate(tpl);
     await db.query(
       "UPDATE broadcast_templates SET meta_template_id=?, status='pending' WHERE id=?",
@@ -288,8 +296,7 @@ router.post('/templates/:id/resubmit', async (req, res) => {
     );
     res.redirect('/superadmin/templates?success=submitted');
   } catch (e) {
-    const errMsg = e.response?.data?.error?.message || e.message;
-    res.redirect('/superadmin/templates?error=' + encodeURIComponent(errMsg));
+    res.redirect('/superadmin/templates?error=' + encodeURIComponent(e.message));
   }
 });
 
