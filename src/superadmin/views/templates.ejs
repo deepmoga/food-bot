@@ -78,7 +78,14 @@ input:focus,select:focus,textarea:focus{border-color:#6366f1}
 
   <% if(locals.query){ %>
     <% if(query.success === 'submitted'){ %><div class="alert alert-success">✅ Template Meta pe submit ho gaya! Status 24-48 hrs mein update hoga. "Sync" button dabao refresh ke liye.</div><% } %>
-    <% if(query.success === 'synced'){ %><div class="alert alert-success">✅ Status Meta se sync ho gaya!</div><% } %>
+    <% if(query.success === 'synced'){ %>
+      <div class="alert alert-success">
+        ✅ Meta se sync ho gaya!
+        <% if(query.imported > 0){ %> <strong><%= query.imported %> naye templates import hue.</strong><% } %>
+        <% if(query.updated > 0){ %> <%= query.updated %> templates ka status update hua.<% } %>
+        <% if(query.imported == 0 && query.updated == 0){ %> Meta pe koi template nahi mila.<% } %>
+      </div>
+    <% } %>
     <% if(query.success === 'deleted'){ %><div class="alert alert-success">✅ Template delete ho gaya.</div><% } %>
     <% if(query.error){ %><div class="alert alert-error">❌ Error: <%= decodeURIComponent(query.error) %></div><% } %>
   <% } %>

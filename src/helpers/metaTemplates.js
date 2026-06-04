@@ -86,7 +86,7 @@ async function syncTemplatesFromMeta() {
   if (!wabaId || !token) throw new Error('WABA ID ya Token set nahi hai');
 
   const res = await axios.get(
-    `${BASE}/${wabaId}/message_templates?fields=id,name,status,rejected_reason&limit=100`,
+    `${BASE}/${wabaId}/message_templates?fields=id,name,status,rejected_reason,components&limit=100`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
   return res.data?.data || [];

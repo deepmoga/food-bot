@@ -219,23 +219,57 @@ router.post('/templates/create', async (req, res) => {
   }
 });
 
-// Sync status from Meta (refresh all)
+// Sync status from Meta (refresh all + import new)
 router.post('/templates/sync', async (req, res) => {
   try {
     const { syncTemplatesFromMeta } = require('../helpers/metaTemplates');
     const metaTemplates = await syncTemplatesFromMeta();
+
+    let updated = 0, imported = 0;
 
     for (const mt of metaTemplates) {
       const newStatus = mt.status === 'APPROVED' ? 'approved'
                       : mt.status === 'REJECTED' ? 'rejected'
                       : mt.status === 'PAUSED'   ? 'paused'
                       : 'pending';
-      await db.query(
-        "UPDATE broadcast_templates SET status=?, rejection_reason=?, meta_template_id=? WHERE meta_name=?",
-        [newStatus, mt.rejected_reason || null, mt.id, mt.name]
+
+      // Check if already in our DB
+      const [[existing]] = await db.query(
+        'SELECT id FROM broadcast_templates WHERE meta_name=?', [mt.name]
       );
+
+      if (existing) {
+        // Update status
+        await db.query(
+          "UPDATE broadcast_templates SET status=?, rejection_reason=?, meta_template_id=? WHERE meta_name=?",
+          [newStatus, mt.rejected_reason || null, mt.id, mt.name]
+        );
+        updated++;
+      } else {
+        // Import from Meta — extract body text from components
+        let bodyText = '', headerType = 'none', footerText = '';
+        const comps = mt.components || [];
+        for (const c of comps) {
+          if (c.type === 'BODY') bodyText = c.text || '';
+          if (c.type === 'FOOTER') footerText = c.text || '';
+          if (c.type === 'HEADER') {
+            headerType = c.format === 'IMAGE' ? 'image'
+                       : c.format === 'TEXT'  ? 'text' : 'none';
+          }
+        }
+        const displayName = mt.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        await db.query(
+          `INSERT IGNORE INTO broadcast_templates
+           (display_name, meta_name, header_type, body_text, footer_text,
+            meta_template_id, status, variables_json)
+           VALUES (?,?,?,?,?,?,?,'[]')`,
+          [displayName, mt.name, headerType, bodyText, footerText || null, mt.id, newStatus]
+        );
+        imported++;
+      }
     }
-    res.redirect('/superadmin/templates?success=synced');
+
+    res.redirect(`/superadmin/templates?success=synced&updated=${updated}&imported=${imported}`);
   } catch (e) {
     res.redirect('/superadmin/templates?error=' + encodeURIComponent(e.message));
   }
