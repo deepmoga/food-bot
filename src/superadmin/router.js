@@ -147,24 +147,112 @@ router.post('/vendors/:id/topup', async (req, res) => {
 // PLATFORM SETTINGS
 router.get('/settings', async (req, res) => {
   const { getPlatformSetting } = require('../helpers/platformSettings');
-  const [rzpKeyId, rzpKeySecret, waToken] = await Promise.all([
+  const [rzpKeyId, rzpKeySecret, waToken, wabaId] = await Promise.all([
     getPlatformSetting('platform_razorpay_key_id'),
     getPlatformSetting('platform_razorpay_key_secret'),
-    getPlatformSetting('platform_whatsapp_token')
+    getPlatformSetting('platform_whatsapp_token'),
+    getPlatformSetting('platform_waba_id')
   ]);
-  res.render('superadmin/views/settings', { rzpKeyId, rzpKeySecret, waToken, query: req.query });
+  res.render('superadmin/views/settings', { rzpKeyId, rzpKeySecret, waToken, wabaId, query: req.query });
 });
 
 router.post('/settings', async (req, res) => {
   const { setPlatformSetting, clearPlatformCache } = require('../helpers/platformSettings');
-  const { platform_razorpay_key_id, platform_razorpay_key_secret, platform_whatsapp_token } = req.body;
+  const { platform_razorpay_key_id, platform_razorpay_key_secret, platform_whatsapp_token, platform_waba_id } = req.body;
   await Promise.all([
     setPlatformSetting('platform_razorpay_key_id', platform_razorpay_key_id || ''),
     setPlatformSetting('platform_razorpay_key_secret', platform_razorpay_key_secret || ''),
-    setPlatformSetting('platform_whatsapp_token', platform_whatsapp_token || '')
+    setPlatformSetting('platform_whatsapp_token', platform_whatsapp_token || ''),
+    setPlatformSetting('platform_waba_id', platform_waba_id || '')
   ]);
   clearPlatformCache();
   res.redirect('/superadmin/settings?saved=1');
+});
+
+// ============================================================
+// BROADCAST TEMPLATES
+// ============================================================
+
+// List all templates
+router.get('/templates', async (req, res) => {
+  const [templates] = await db.query('SELECT * FROM broadcast_templates ORDER BY id DESC');
+  res.render('superadmin/views/templates', { templates, query: req.query });
+});
+
+// Create template (save to DB + submit to Meta)
+router.post('/templates/create', async (req, res) => {
+  const { display_name, meta_name, header_type, header_text, body_text, footer_text,
+          has_button, button_text, button_url, variables_json } = req.body;
+
+  // meta_name: lowercase + underscores only
+  const cleanName = meta_name.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+
+  try {
+    // Save to DB first as draft
+    const [result] = await db.query(
+      `INSERT INTO broadcast_templates
+       (display_name, meta_name, header_type, header_text, body_text, footer_text,
+        has_button, button_text, button_url, variables_json, status)
+       VALUES (?,?,?,?,?,?,?,?,?,?,'draft')`,
+      [display_name, cleanName, header_type || 'none', header_text || null,
+       body_text, footer_text || null, has_button ? 1 : 0,
+       button_text || null, button_url || null, variables_json || '[]']
+    );
+    const tplId = result.insertId;
+    const [[tpl]] = await db.query('SELECT * FROM broadcast_templates WHERE id=?', [tplId]);
+
+    // Submit to Meta
+    try {
+      const { submitTemplate } = require('../helpers/metaTemplates');
+      const metaRes = await submitTemplate(tpl);
+      await db.query(
+        "UPDATE broadcast_templates SET meta_template_id=?, status='pending' WHERE id=?",
+        [metaRes.id || cleanName, tplId]
+      );
+      res.redirect('/superadmin/templates?success=submitted');
+    } catch (metaErr) {
+      await db.query("UPDATE broadcast_templates SET status='draft' WHERE id=?", [tplId]);
+      res.redirect('/superadmin/templates?error=' + encodeURIComponent(metaErr.response?.data?.error?.message || metaErr.message));
+    }
+  } catch (e) {
+    res.redirect('/superadmin/templates?error=' + encodeURIComponent(e.message));
+  }
+});
+
+// Sync status from Meta (refresh all)
+router.post('/templates/sync', async (req, res) => {
+  try {
+    const { syncTemplatesFromMeta } = require('../helpers/metaTemplates');
+    const metaTemplates = await syncTemplatesFromMeta();
+
+    for (const mt of metaTemplates) {
+      const newStatus = mt.status === 'APPROVED' ? 'approved'
+                      : mt.status === 'REJECTED' ? 'rejected'
+                      : mt.status === 'PAUSED'   ? 'paused'
+                      : 'pending';
+      await db.query(
+        "UPDATE broadcast_templates SET status=?, rejection_reason=?, meta_template_id=? WHERE meta_name=?",
+        [newStatus, mt.rejected_reason || null, mt.id, mt.name]
+      );
+    }
+    res.redirect('/superadmin/templates?success=synced');
+  } catch (e) {
+    res.redirect('/superadmin/templates?error=' + encodeURIComponent(e.message));
+  }
+});
+
+// Delete template (DB + Meta)
+router.post('/templates/:id/delete', async (req, res) => {
+  const [[tpl]] = await db.query('SELECT * FROM broadcast_templates WHERE id=?', [req.params.id]);
+  if (!tpl) return res.redirect('/superadmin/templates');
+  try {
+    if (tpl.meta_template_id) {
+      const { deleteMetaTemplate } = require('../helpers/metaTemplates');
+      await deleteMetaTemplate(tpl.meta_name);
+    }
+  } catch (_) {}
+  await db.query('DELETE FROM broadcast_templates WHERE id=?', [req.params.id]);
+  res.redirect('/superadmin/templates?success=deleted');
 });
 
 // PLANS — list

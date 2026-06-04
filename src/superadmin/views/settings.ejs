@@ -39,6 +39,7 @@ input:focus,textarea:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102
     <a href="/superadmin">Dashboard</a>
     <a href="/superadmin/vendors">Vendors</a>
     <a href="/superadmin/plans">Plans</a>
+    <a href="/superadmin/templates">Templates</a>
     <a href="/superadmin/logout">Logout</a>
   </div>
 </div>
@@ -65,10 +66,15 @@ input:focus,textarea:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102
       </div>
 
       <div class="form-group">
+        <label>WABA ID (WhatsApp Business Account ID)</label>
+        <input type="text" name="platform_waba_id" value="<%= wabaId %>" placeholder="123456789012345">
+        <div class="hint">Meta Business Manager → WhatsApp → WhatsApp Accounts → Account ID</div>
+      </div>
+      <div class="form-group">
         <label>Platform WhatsApp Token (System User Token)</label>
         <textarea name="platform_whatsapp_token" rows="3" placeholder="EAAxxxxxxxxxxxxxxxxxxxxx..."
           style="font-size:11px"><%= waToken %></textarea>
-        <div class="hint">Meta Business Manager → System Users → Generate Token</div>
+        <div class="hint">Meta Business Manager → System Users → Generate Token (whatsapp_business_messaging + whatsapp_business_management permissions)</div>
       </div>
     </div>
 
@@ -103,6 +109,10 @@ input:focus,textarea:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102
   <!-- Status Card -->
   <div class="card" style="background:#f9fafb;margin-top:20px">
     <h3 style="color:#374151;margin-bottom:14px">📊 Current Status</h3>
+    <div class="status-row">
+      <span class="dot <%= wabaId ? 'dot-green' : 'dot-red' %>"></span>
+      WABA ID: <strong><%= wabaId || 'Not set ⚠️' %></strong>
+    </div>
     <div class="status-row">
       <span class="dot <%= waToken ? 'dot-green' : 'dot-red' %>"></span>
       WhatsApp Token:

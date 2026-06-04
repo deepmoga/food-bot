@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Broadcast Templates — Super Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#f3f4f6;color:#111}
+.top{background:#1a1a2e;color:#fff;padding:16px 24px;display:flex;align-items:center;justify-content:space-between}
+.top h1{font-size:18px;font-weight:700}
+.top a{color:#a5b4fc;text-decoration:none;font-size:13px;margin-left:16px}
+.main{padding:24px;max-width:1100px;margin:0 auto}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px}
+.page-header h2{font-size:20px;font-weight:700}
+.card{background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;margin-bottom:20px}
+.card-pad{padding:20px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 14px;background:#f9fafb;border-bottom:2px solid #e5e7eb;font-size:11px;text-transform:uppercase;color:#374151;font-weight:600}
+td{padding:10px 14px;border-bottom:1px solid #f3f4f6;vertical-align:middle}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border-radius:8px;border:none;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none}
+.btn-indigo{background:#6366f1;color:#fff}.btn-green{background:#1db954;color:#fff}
+.btn-red{background:#e53935;color:#fff}.btn-ghost{background:#f3f4f6;color:#374151}
+.btn-amber{background:#f59e0b;color:#fff}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.b-draft{background:#f1f5f9;color:#64748b}
+.b-pending{background:#fff3cd;color:#7d4e00}
+.b-approved{background:#d1fae5;color:#065f46}
+.b-rejected{background:#fee2e2;color:#991b1b}
+.b-paused{background:#e0e7ff;color:#3730a3}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:flex-start;justify-content:center;padding:30px 16px;overflow-y:auto}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:16px;padding:24px;width:100%;max-width:600px}
+.modal h2{font-size:17px;font-weight:700;margin-bottom:16px}
+.close{float:right;cursor:pointer;font-size:22px;color:#6b7280;background:none;border:none;line-height:1}
+.form-group{margin-bottom:14px}
+label{display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px}
+input,select,textarea{width:100%;padding:8px 11px;border:1px solid #d1d5db;border-radius:8px;font-family:inherit;font-size:13px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:#6366f1}
+.hint{font-size:11px;color:#6b7280;margin-top:3px}
+.alert{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px}
+.alert-success{background:#d1fae5;color:#065f46}
+.alert-error{background:#fee2e2;color:#991b1b}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tip{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;font-size:12px;color:#1e40af;margin-bottom:14px}
+.var-row{display:flex;gap:8px;margin-bottom:8px;align-items:center}
+.var-row input{flex:1}
+.var-label{font-size:12px;font-weight:600;color:#6366f1;width:36px;flex-shrink:0;text-align:center}
+.preview-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px;font-size:13px;line-height:1.6;white-space:pre-wrap;margin-top:10px;min-height:60px}
+#header_type_field,#button_fields{margin-top:10px}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>👑 Super Admin</h1>
+  <div>
+    <a href="/superadmin">Dashboard</a>
+    <a href="/superadmin/vendors">Vendors</a>
+    <a href="/superadmin/plans">Plans</a>
+    <a href="/superadmin/settings">Settings</a>
+    <a href="/superadmin/logout">Logout</a>
+  </div>
+</div>
+
+<div class="main">
+  <div class="page-header">
+    <h2>📋 Broadcast Templates</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <!-- Sync from Meta -->
+      <form method="POST" action="/superadmin/templates/sync" style="display:inline">
+        <button type="submit" class="btn btn-amber">🔄 Sync Status from Meta</button>
+      </form>
+      <button class="btn btn-indigo" onclick="document.getElementById('createModal').classList.add('open')">
+        + New Template
+      </button>
+    </div>
+  </div>
+
+  <% if(locals.query){ %>
+    <% if(query.success === 'submitted'){ %><div class="alert alert-success">✅ Template Meta pe submit ho gaya! Status 24-48 hrs mein update hoga. "Sync" button dabao refresh ke liye.</div><% } %>
+    <% if(query.success === 'synced'){ %><div class="alert alert-success">✅ Status Meta se sync ho gaya!</div><% } %>
+    <% if(query.success === 'deleted'){ %><div class="alert alert-success">✅ Template delete ho gaya.</div><% } %>
+    <% if(query.error){ %><div class="alert alert-error">❌ Error: <%= decodeURIComponent(query.error) %></div><% } %>
+  <% } %>
+
+  <div class="tip">
+    💡 <strong>Flow:</strong> Template banao → Meta pe submit hoga automatically → 24-48 hrs mein Approved/Rejected → "Sync" dabao status update ke liye → Approved templates vendors ko broadcast mein milenge.
+  </div>
+
+  <div class="card">
+    <% if(!templates.length){ %>
+    <div style="text-align:center;padding:40px;color:#6b7280">
+      <div style="font-size:40px;margin-bottom:10px">📋</div>
+      <div>Abhi koi template nahi. "+ New Template" se banao.</div>
+    </div>
+    <% } else { %>
+    <table>
+      <thead>
+        <tr>
+          <th>Template</th>
+          <th>Meta Name</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>Variables</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+      <% templates.forEach(t => { %>
+        <tr>
+          <td>
+            <strong><%= t.display_name %></strong>
+            <% if(t.footer_text){ %><div style="font-size:11px;color:#6b7280">Footer: <%= t.footer_text %></div><% } %>
+          </td>
+          <td><code style="font-size:11px;background:#f3f4f6;padding:2px 6px;border-radius:4px"><%= t.meta_name %></code></td>
+          <td>
+            <% if(t.header_type==='image'){ %><span>🖼️ Image</span>
+            <% } else if(t.header_type==='text'){ %><span>📝 Text Header</span>
+            <% } else { %><span>📄 Text Only</span><% } %>
+            <% if(t.has_button){ %><div style="font-size:11px;color:#6366f1">🔗 Button</div><% } %>
+          </td>
+          <td>
+            <% const sc = {draft:'b-draft',pending:'b-pending',approved:'b-approved',rejected:'b-rejected',paused:'b-paused'} %>
+            <% const si = {draft:'⏸️',pending:'⏳',approved:'✅',rejected:'❌',paused:'⏸️'} %>
+            <span class="badge <%= sc[t.status] || 'b-draft' %>">
+              <%= si[t.status] %> <%= t.status.charAt(0).toUpperCase()+t.status.slice(1) %>
+            </span>
+            <% if(t.status==='rejected' && t.rejection_reason){ %>
+              <div style="font-size:11px;color:#e53935;margin-top:3px" title="<%= t.rejection_reason %>">
+                Reason: <%= t.rejection_reason.substring(0,40) %>...
+              </div>
+            <% } %>
+          </td>
+          <td>
+            <% try { const vars = JSON.parse(t.variables_json||'[]'); %>
+              <% vars.forEach((v,i) => { %>
+                <div style="font-size:11px"><span style="color:#6366f1;font-weight:700">{{<%= i+1 %>}}</span> = <%= v.name %></div>
+              <% }) %>
+            <% } catch(e) {} %>
+          </td>
+          <td>
+            <button class="btn btn-ghost" onclick="previewTemplate(<%- JSON.stringify(t) %>)">👁️</button>
+            <form method="POST" action="/superadmin/templates/<%= t.id %>/delete" style="display:inline"
+              onsubmit="return confirm('Template delete karo? Meta se bhi remove ho jayega.')">
+              <button type="submit" class="btn btn-red">🗑️</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+      </tbody>
+    </table>
+    <% } %>
+  </div>
+</div>
+
+<!-- Create Template Modal -->
+<div class="modal-overlay" id="createModal">
+<div class="modal">
+  <button class="close" onclick="document.getElementById('createModal').classList.remove('open')">×</button>
+  <h2>📋 New Broadcast Template</h2>
+
+  <form method="POST" action="/superadmin/templates/create" id="tplForm">
+    <div class="grid2">
+      <div class="form-group">
+        <label>Display Name <span style="color:#e53935">*</span></label>
+        <input name="display_name" required placeholder="e.g. Image Offer" oninput="updateMetaName(this.value)">
+        <div class="hint">Vendors ko yeh naam dikhega</div>
+      </div>
+      <div class="form-group">
+        <label>Meta Template Name <span style="color:#e53935">*</span></label>
+        <input name="meta_name" id="metaName" required placeholder="foodbot_image_offer" style="font-family:monospace">
+        <div class="hint">Lowercase + underscore only</div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Header Type</label>
+      <select name="header_type" id="headerTypeSelect" onchange="toggleHeaderFields()">
+        <option value="none">None (Text only)</option>
+        <option value="image">🖼️ Image (vendor har baar image dega)</option>
+        <option value="text">📝 Text Header</option>
+      </select>
+    </div>
+
+    <div id="header_text_field" style="display:none">
+      <div class="form-group">
+        <label>Header Text</label>
+        <input name="header_text" placeholder="e.g. Special Offer!" maxlength="60">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Body Text <span style="color:#e53935">*</span></label>
+      <textarea name="body_text" id="bodyText" rows="5" required
+        placeholder="Hi {{1}}! 🎉&#10;&#10;*{{2}}* mein khaas offer:&#10;{{3}}" oninput="updatePreview()"></textarea>
+      <div class="hint">Variables: {{1}}, {{2}}, {{3}} etc. use karo</div>
+    </div>
+
+    <div class="form-group">
+      <label>Footer Text <span style="color:#6b7280">(optional)</span></label>
+      <input name="footer_text" placeholder="Reply STOP to opt out" maxlength="60">
+    </div>
+
+    <!-- Variables Definition -->
+    <div class="form-group">
+      <label>Variables Define Karo</label>
+      <div class="tip">Har {{n}} ka naam aur example value daalo — Meta approval ke liye zaroori hai</div>
+      <div id="variablesList">
+        <div class="var-row">
+          <span class="var-label">{{1}}</span>
+          <input class="var-name" placeholder="Variable name (e.g. Customer Name)" oninput="updateVarsJson()">
+          <input class="var-example" placeholder="Example value (e.g. Rahul)" oninput="updateVarsJson()">
+        </div>
+        <div class="var-row">
+          <span class="var-label">{{2}}</span>
+          <input class="var-name" placeholder="Variable name (e.g. Restaurant Name)" oninput="updateVarsJson()">
+          <input class="var-example" placeholder="Example value (e.g. Pizza Palace)" oninput="updateVarsJson()">
+        </div>
+        <div class="var-row">
+          <span class="var-label">{{3}}</span>
+          <input class="var-name" placeholder="Variable name (e.g. Offer Text)" oninput="updateVarsJson()">
+          <input class="var-example" placeholder="Example value (e.g. 30% OFF today!)" oninput="updateVarsJson()">
+        </div>
+      </div>
+      <button type="button" class="btn btn-ghost" style="margin-top:8px;font-size:12px" onclick="addVarRow()">+ Add Variable</button>
+    </div>
+
+    <!-- Button -->
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" name="has_button" value="1" id="hasButton" onchange="toggleButton()" style="width:auto">
+        Add CTA Button (Order Now, Visit Website etc.)
+      </label>
+    </div>
+    <div id="button_fields" style="display:none">
+      <div class="grid2">
+        <div class="form-group">
+          <label>Button Text</label>
+          <input name="button_text" placeholder="Order Now" maxlength="25">
+        </div>
+        <div class="form-group">
+          <label>Button URL</label>
+          <input name="button_url" placeholder="https://wa.me/91XXXXXXXXXX">
+        </div>
+      </div>
+    </div>
+
+    <input type="hidden" name="variables_json" id="variablesJson" value="[]">
+
+    <!-- Live Preview -->
+    <div class="form-group">
+      <label>Preview</label>
+      <div class="preview-box" id="previewBox">Body text likhna shuru karo...</div>
+    </div>
+
+    <button type="submit" class="btn btn-indigo" style="width:100%;padding:11px;font-size:14px;justify-content:center">
+      🚀 Submit to Meta for Approval
+    </button>
+    <div style="font-size:11px;color:#6b7280;text-align:center;margin-top:8px">
+      Template Meta pe submit hoga — approval 24-48 hrs mein hogi
+    </div>
+  </form>
+</div>
+</div>
+
+<!-- Preview Modal -->
+<div class="modal-overlay" id="previewModal">
+<div class="modal" style="max-width:420px">
+  <button class="close" onclick="document.getElementById('previewModal').classList.remove('open')">×</button>
+  <h2>👁️ Template Preview</h2>
+  <div id="previewContent" style="margin-top:10px"></div>
+</div>
+</div>
+
+<script>
+function updateMetaName(val) {
+  document.getElementById('metaName').value = 'foodbot_' + val.toLowerCase().replace(/[^a-z0-9]/g,'_').replace(/_+/g,'_');
+}
+
+function toggleHeaderFields() {
+  const v = document.getElementById('headerTypeSelect').value;
+  document.getElementById('header_text_field').style.display = v === 'text' ? 'block' : 'none';
+}
+
+function toggleButton() {
+  document.getElementById('button_fields').style.display =
+    document.getElementById('hasButton').checked ? 'block' : 'none';
+}
+
+let varCount = 3;
+function addVarRow() {
+  varCount++;
+  const div = document.createElement('div');
+  div.className = 'var-row';
+  div.innerHTML = `<span class="var-label">{{${varCount}}}</span>
+    <input class="var-name" placeholder="Variable name" oninput="updateVarsJson()">
+    <input class="var-example" placeholder="Example value" oninput="updateVarsJson()">`;
+  document.getElementById('variablesList').appendChild(div);
+}
+
+function updateVarsJson() {
+  const names = document.querySelectorAll('.var-name');
+  const examples = document.querySelectorAll('.var-example');
+  const vars = [];
+  names.forEach((n, i) => {
+    if (n.value || examples[i]?.value) {
+      vars.push({ name: n.value || `var${i+1}`, example: examples[i]?.value || 'sample' });
+    }
+  });
+  document.getElementById('variablesJson').value = JSON.stringify(vars);
+  updatePreview();
+}
+
+function updatePreview() {
+  let text = document.getElementById('bodyText').value;
+  const examples = document.querySelectorAll('.var-example');
+  examples.forEach((e, i) => {
+    text = text.replace(new RegExp(`\\{\\{${i+1}\\}\\}`, 'g'), e.value || `[var${i+1}]`);
+  });
+  document.getElementById('previewBox').textContent = text || 'Body text likhna shuru karo...';
+}
+
+function previewTemplate(t) {
+  let html = '';
+  if (t.header_type === 'image') html += '<div style="background:#e5e7eb;border-radius:8px;padding:20px;text-align:center;margin-bottom:10px;color:#6b7280">🖼️ Image Header (vendor upload karega)</div>';
+  if (t.header_type === 'text' && t.header_text) html += `<div style="font-weight:700;font-size:15px;margin-bottom:8px">${t.header_text}</div>`;
+  html += `<div style="background:#f0fdf4;border-radius:8px;padding:12px;white-space:pre-wrap;line-height:1.6;font-size:13px">${t.body_text}</div>`;
+  if (t.footer_text) html += `<div style="color:#6b7280;font-size:11px;margin-top:6px">${t.footer_text}</div>`;
+  if (t.has_button && t.button_text) html += `<div style="margin-top:10px"><a style="background:#6366f1;color:#fff;padding:8px 16px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600">${t.button_text}</a></div>`;
+  try {
+    const vars = JSON.parse(t.variables_json || '[]');
+    if (vars.length) {
+      html += '<div style="margin-top:12px;border-top:1px solid #e5e7eb;padding-top:10px"><div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:6px">Variables:</div>';
+      vars.forEach((v,i) => { html += `<div style="font-size:11px"><span style="color:#6366f1;font-weight:700">{{${i+1}}}</span> = ${v.name} <span style="color:#6b7280">(e.g. ${v.example})</span></div>`; });
+      html += '</div>';
+    }
+  } catch(e){}
+  document.getElementById('previewContent').innerHTML = html;
+  document.getElementById('previewModal').classList.add('open');
+}
+
+// Close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => { if(e.target === o) o.classList.remove('open'); });
+});
+</script>
+</body>
+</html>
