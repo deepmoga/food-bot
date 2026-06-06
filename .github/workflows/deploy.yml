@@ -1,0 +1,34 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Deploy via SSH
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USERNAME }}
+        key: ${{ secrets.SSH_KEY }}
+        port: ${{ secrets.SSH_PORT || 22 }}
+        script: |
+          # Go to project directory
+          cd /var/www/food-bot
+          
+          # Pull latest code
+          git pull origin main
+          
+          # Install production dependencies
+          npm install --production
+          
+          # Restart application using PM2
+          pm2 restart index.js || pm2 start index.js --name "whatsapp-food-bot"
