@@ -8,6 +8,32 @@ const body = `
 </div>
 ${locals.query && locals.query.saved ? '<div class="alert alert-success">✅ Settings saved successfully!</div>' : ''}
 <form method="POST" action="/admin/settings">
+  <div class="card" style="border:2px solid var(--green);display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+    <div style="flex:1;min-width:250px">
+      <h3 style="margin-bottom:8px;font-size:16px">🟢 WhatsApp Ordering QR Code</h3>
+      <p style="font-size:13px;color:#4b5563;margin-bottom:12px">
+        Apne customers ke liye QR code download karein. Ise print karke table counters ya menu cards par lagayein taaki customers scan karke WhatsApp par order kar sakein!
+      </p>
+      ${s('restaurant_phone') ? (
+        '<div style="margin-bottom:12px;word-break:break-all">' +
+          '<strong style="font-size:12px">WhatsApp Link:</strong> <a href="https://wa.me/' + s('restaurant_phone') + '?text=hi" target="_blank" style="color:var(--blue);text-decoration:none">https://wa.me/' + s('restaurant_phone') + '?text=hi</a>' +
+        '</div>' +
+        '<button type="button" class="btn btn-primary" onclick="downloadQRCode(\'https://wa.me/' + s('restaurant_phone') + '?text=hi\', this)">' +
+          '📥 Download QR Code Image' +
+        '</button>'
+      ) : (
+        '<div class="alert alert-error" style="margin-bottom:0;padding:8px 12px">' +
+          '⚠️ Please set and save your <strong>WhatsApp Number</strong> under Restaurant Info first to generate the QR Code.' +
+        '</div>'
+      )}
+    </div>
+    ${s('restaurant_phone') ? (
+      '<div style="text-align:center;background:#fff;padding:12px;border:1px solid #e5e7eb;border-radius:8px">' +
+        '<img id="qr-image" src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent('https://wa.me/' + s('restaurant_phone') + '?text=hi') + '" alt="WhatsApp QR Code" style="width:150px;height:150px;display:block" />' +
+      '</div>'
+    ) : ''}
+  </div>
+
   <div class="card">
     <h3 style="margin-bottom:16px;font-size:16px">🏪 Restaurant Info</h3>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
@@ -104,6 +130,30 @@ ${locals.query && locals.query.saved ? '<div class="alert alert-success">✅ Set
 
   <button type="submit" class="btn btn-primary" style="width:100%;padding:12px;font-size:15px">💾 Save All Settings</button>
 </form>
+<script>
+async function downloadQRCode(waLink, btn) {
+  const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=" + encodeURIComponent(waLink);
+  const oldText = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = "⏳ Generating QR...";
+  try {
+    const response = await fetch(qrUrl);
+    const blob = await response.blob();
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'whatsapp-order-qr.png';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (error) {
+    console.error("QR Code download failed:", error);
+    alert("Failed to download QR code. Please right-click the QR image and save it.");
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = oldText;
+  }
+}
+</script>
 `;
 %>
 <%- include('layout', {body, page, title, features, query: locals.query}) %>
