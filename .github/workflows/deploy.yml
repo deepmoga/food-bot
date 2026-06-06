@@ -22,7 +22,7 @@ jobs:
         port: ${{ secrets.SSH_PORT || 22 }}
         script: |
           # Go to project directory
-          cd /var/www/food-bot
+          cd /home/foodbot/public_html
           
           # Pull latest code
           git pull origin main
@@ -31,4 +31,4 @@ jobs:
           npm install --production
           
           # Restart application using PM2
-          pm2 restart index.js || pm2 start index.js --name "whatsapp-food-bot"
+          pm2 restart foodbot
