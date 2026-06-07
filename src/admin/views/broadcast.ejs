@@ -63,18 +63,25 @@ ${approvedTemplates.length === 0 ? `
     <div class="card" style="padding:20px;margin-bottom:16px">
       <div style="font-size:13px;font-weight:700;margin-bottom:12px;color:#374151">Step 3 — Customers Select Karo</div>
       <div style="display:flex;flex-direction:column;gap:8px">
-        ${[
-          ['all', 'Sab Customers', recipientCounts.all],
-          ['last_30', 'Last 30 din active', recipientCounts.last_30],
-          ['last_7', 'Last 7 din active', recipientCounts.last_7],
-          ['last_3months', 'Last 3 mahine active', recipientCounts.last_3months],
-          ['ordered_3plus', '3+ orders wale (Loyal)', recipientCounts.ordered_3plus]
-        ].map(([val, label, count]) => `
-        <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid #e5e7eb;border-radius:10px;cursor:pointer" onclick="updateCreditEstimate()">
-          <input type="radio" name="recipient_filter" value="${val}" ${val==='last_30'?'checked':''} style="width:auto" onchange="updateCreditEstimate()">
-          <span style="flex:1;font-size:13px;font-weight:500">${label}</span>
-          <span style="background:#f3f4f6;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600">${count} customers</span>
-        </label>`).join('')}
+        ${(() => {
+          const options = [
+            ['all', 'Sab Customers', recipientCounts.all],
+            ['last_30', 'Last 30 din active', recipientCounts.last_30],
+            ['last_7', 'Last 7 din active', recipientCounts.last_7],
+            ['last_3months', 'Last 3 mahine active', recipientCounts.last_3months],
+            ['ordered_3plus', '3+ orders wale (Loyal)', recipientCounts.ordered_3plus]
+          ];
+          if (recipientCounts.custom > 0) {
+            options.unshift(['custom', 'Custom Selection (Customers page se)', recipientCounts.custom]);
+          }
+          const defaultChecked = (recipientCounts.custom > 0 && typeof query !== 'undefined' && query.filter === 'custom') ? 'custom' : 'last_30';
+          return options.map(([val, label, count]) => `
+          <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid #e5e7eb;border-radius:10px;cursor:pointer" onclick="updateCreditEstimate()">
+            <input type="radio" name="recipient_filter" value="${val}" ${val===defaultChecked?'checked':''} style="width:auto" onchange="updateCreditEstimate()">
+            <span style="flex:1;font-size:13px;font-weight:500">${label}</span>
+            <span style="background:#f3f4f6;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600">${count} customers</span>
+          </label>`).join('');
+        })()}
       </div>
     </div>
 

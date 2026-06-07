@@ -25,6 +25,7 @@ const body = `
   <table>
     <thead>
       <tr>
+        <th style="width: 40px; text-align: center;"><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)"></th>
         <th>Customer Name</th>
         <th>Phone Number</th>
         <th>Total Orders</th>
@@ -41,6 +42,7 @@ const body = `
         const waLink = 'https://wa.me/' + (cleanPhone.startsWith('91') && cleanPhone.length === 12 ? cleanPhone : (cleanPhone.length === 10 ? '91' + cleanPhone : cleanPhone));
         return `
         <tr>
+          <td style="width: 40px; text-align: center;"><input type="checkbox" class="customer-check" value="${phoneNo}" onclick="updateSelection()"></td>
           <td><strong>${c.name || '-'}</strong></td>
           <td>${phoneNo}</td>
           <td><span class="badge badge-confirmed" style="font-size:12px">${c.order_count} orders</span></td>
@@ -53,10 +55,83 @@ const body = `
           </td>
         </tr>`;
       }).join('')}
-      ${customers.length === 0 ? '<tr><td colspan="6" style="text-align:center;padding:32px;color:#6b7280">No customers found</td></tr>' : ''}
+      ${customers.length === 0 ? '<tr><td colspan="7" style="text-align:center;padding:32px;color:#6b7280">No customers found</td></tr>' : ''}
     </tbody>
   </table>
 </div>
+
+<!-- Floating selection bar -->
+<div id="floatingBar" style="display:none;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#fff;border:1px solid #e5e7eb;box-shadow:0 10px 30px rgba(0,0,0,0.15);border-radius:12px;padding:12px 24px;align-items:center;gap:16px;z-index:9999">
+  <span style="font-size:13px;font-weight:600;color:#374151"><span id="selected-count" style="color:var(--green);font-size:15px">0</span> customers selected</span>
+  <button class="btn btn-primary" onclick="broadcastToSelected()">📢 Broadcast to Selected</button>
+</div>
+
+<script>
+function toggleSelectAll(master) {
+  const checkboxes = document.querySelectorAll('.customer-check');
+  checkboxes.forEach(cb => cb.checked = master.checked);
+  updateSelection();
+}
+
+function updateSelection() {
+  const checkboxes = document.querySelectorAll('.customer-check');
+  const selected = document.querySelectorAll('.customer-check:checked');
+  const count = selected.length;
+  const bar = document.getElementById('floatingBar');
+  const countSpan = document.getElementById('selected-count');
+  
+  countSpan.textContent = count;
+  if (count > 0) {
+    bar.style.display = 'flex';
+  } else {
+    bar.style.display = 'none';
+  }
+  
+  // Update selectAll state
+  const selectAll = document.getElementById('selectAll');
+  if (count === 0) {
+    selectAll.checked = false;
+    selectAll.indeterminate = false;
+  } else if (count === checkboxes.length) {
+    selectAll.checked = true;
+    selectAll.indeterminate = false;
+  } else {
+    selectAll.checked = false;
+    selectAll.indeterminate = true;
+  }
+}
+
+async function broadcastToSelected() {
+  const selected = Array.from(document.querySelectorAll('.customer-check:checked')).map(cb => cb.value);
+  if (selected.length === 0) return;
+  
+  const btn = document.querySelector('#floatingBar button');
+  const oldText = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = "⏳ Processing...";
+
+  try {
+    const response = await fetch('/admin/api/select-recipients', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phones: selected })
+    });
+    const data = await response.json();
+    if (data.success) {
+      window.location.href = '/admin/broadcast?filter=custom';
+    } else {
+      alert('Error selecting recipients.');
+      btn.disabled = false;
+      btn.innerHTML = oldText;
+    }
+  } catch (e) {
+    console.error(e);
+    alert('Connection error.');
+    btn.disabled = false;
+    btn.innerHTML = oldText;
+  }
+}
+</script>
 `;
 %>
 <%- include('layout', {body, page, title, features}) %>

@@ -488,7 +488,8 @@ router.get('/broadcast', async (req, res) => {
     last_30: await countRecipients(vendorId, 'last_30'),
     last_7: await countRecipients(vendorId, 'last_7'),
     last_3months: await countRecipients(vendorId, 'last_3months'),
-    ordered_3plus: await countRecipients(vendorId, 'ordered_3plus')
+    ordered_3plus: await countRecipients(vendorId, 'ordered_3plus'),
+    custom: (req.session.customBroadcastPhones || []).length
   };
 
   res.render('admin/views/broadcast', { features, credits, approvedTemplates, campaigns, recipientCounts, query: req.query });
@@ -506,7 +507,15 @@ router.post('/broadcast/send', async (req, res) => {
     const credits = credRow?.balance || 0;
 
     const { countRecipients, getRecipients } = require('../helpers/broadcast');
-    const recipientCount = await countRecipients(vendorId, recipient_filter || 'all');
+    let recipientCount = 0;
+    let customPhones = null;
+
+    if (recipient_filter === 'custom') {
+      customPhones = (req.session.customBroadcastPhones || []).join(',');
+      recipientCount = (req.session.customBroadcastPhones || []).length;
+    } else {
+      recipientCount = await countRecipients(vendorId, recipient_filter || 'all');
+    }
 
     if (recipientCount > credits) {
       return res.redirect('/admin/broadcast?error=' + encodeURIComponent('Enough credits nahi hain. ' + recipientCount + ' credits chahiye, ' + credits + ' available hain.'));
@@ -518,9 +527,9 @@ router.post('/broadcast/send', async (req, res) => {
 
     // Create campaign record
     const [result] = await db.query(
-      `INSERT INTO broadcast_campaigns (vendor_id, template_id, template_name, variable_values, image_url, recipient_filter, recipient_count, credits_used, status)
-       VALUES (?,?,?,?,?,?,?,?,'pending')`,
-      [vendorId, tpl.id, tpl.display_name, JSON.stringify(variableValues), image_url || null, recipient_filter || 'all', recipientCount, recipientCount]
+      `INSERT INTO broadcast_campaigns (vendor_id, template_id, template_name, variable_values, recipient_phones, image_url, recipient_filter, recipient_count, credits_used, status)
+       VALUES (?,?,?,?,?,?,?,?,?,?,'pending')`,
+      [vendorId, tpl.id, tpl.display_name, JSON.stringify(variableValues), customPhones, image_url || null, recipient_filter || 'all', recipientCount, recipientCount]
     );
     const campaignId = result.insertId;
 
@@ -585,6 +594,13 @@ router.get('/customers', async (req, res) => {
   );
 
   res.render('admin/views/customers', { customers, filter, search, features });
+});
+
+// --- API: Select Broadcast Recipients ---
+router.post('/api/select-recipients', (req, res) => {
+  const { phones } = req.body;
+  req.session.customBroadcastPhones = Array.isArray(phones) ? phones : [];
+  res.json({ success: true, count: req.session.customBroadcastPhones.length });
 });
 
 module.exports = router;

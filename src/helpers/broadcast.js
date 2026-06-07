@@ -103,7 +103,12 @@ async function runCampaign(campaignId) {
 
   await db.query("UPDATE broadcast_campaigns SET status='sending', started_at=NOW() WHERE id=?", [campaignId]);
 
-  const recipients = await getRecipients(campaign.vendor_id, campaign.recipient_filter);
+  let recipients;
+  if (campaign.recipient_filter === 'custom' && campaign.recipient_phones) {
+    recipients = campaign.recipient_phones.split(',').filter(Boolean);
+  } else {
+    recipients = await getRecipients(campaign.vendor_id, campaign.recipient_filter);
+  }
   const variableValues = JSON.parse(campaign.variable_values || '[]');
   let sent = 0, failed = 0;
 

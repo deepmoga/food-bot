@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS broadcast_campaigns (
   template_id      INT NOT NULL,
   template_name    VARCHAR(100),
   variable_values  TEXT COMMENT 'JSON array of variable values',
+  recipient_phones LONGTEXT NULL,
   image_url        TEXT DEFAULT NULL,
   recipient_filter VARCHAR(30) DEFAULT 'all',
   recipient_count  INT DEFAULT 0,
