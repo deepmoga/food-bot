@@ -43,7 +43,7 @@ async function handleLocation(phone, lat, lng, locName, locAddress, vendorId) {
   const total = cartTotal(cart);
   const deliveryCharge = await calculateDeliveryCharge(total, vendorId);
   const discount = parseFloat(session.pending_discount) || 0;
-  const breakdown = await orderBreakdown(cart, discount, deliveryCharge, vendorId);
+  const breakdown = await orderBreakdown(cart, discount, deliveryCharge, vendorId, session.pending_coupon);
   const summary = cartSummary(cart);
 
   await updateSession(phone, vendorId, {

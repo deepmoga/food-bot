@@ -20,7 +20,7 @@ async function placeOrder(phone, vendorId) {
   const total = cartTotal(cart);
   const discount = parseFloat(session.pending_discount) || 0;
   const delivery = parseFloat(session.delivery_charge) || 0;
-  const breakdown = await orderBreakdown(cart, discount, delivery, vendorId);
+  const breakdown = await orderBreakdown(cart, discount, delivery, vendorId, session.pending_coupon);
 
   const order = await createOrder(session, cart, breakdown, vendorId);
 

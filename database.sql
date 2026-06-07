@@ -275,7 +275,15 @@ BEGIN
     (vid, 'restaurant_tagline',   '',                         'Tagline shown on bill'),
     (vid, 'restaurant_gstin',     '',                         'GSTIN number for bill'),
     (vid, 'bill_footer_text',     'Thank you for ordering!',  'Footer text on bill'),
-    (vid, 'review_after_minutes', '60',                       'Send review request after N minutes of delivery');
+    (vid, 'review_after_minutes', '60',                       'Send review request after N minutes of delivery'),
+    (vid, 'store_discount_enabled', '0',                      'Enable store-wide automatic discount (1=Yes, 0=No)'),
+    (vid, 'store_discount_type',  'percent',                  'Store-wide discount type (percent or flat)'),
+    (vid, 'store_discount_value', '0',                        'Store-wide discount value'),
+    (vid, 'happy_hour_enabled',   '0',                        'Enable happy hour automatic discount (1=Yes, 0=No)'),
+    (vid, 'happy_hour_type',      'percent',                  'Happy hour discount type (percent or flat)'),
+    (vid, 'happy_hour_value',     '0',                        'Happy hour discount value'),
+    (vid, 'happy_hour_start',     '16:00',                    'Happy hour start time (HH:MM)'),
+    (vid, 'happy_hour_end',       '19:00',                    'Happy hour end time (HH:MM)');
 
   -- Default features (all enabled, broadcast OFF by default)
   INSERT IGNORE INTO vendor_features (vendor_id, feature_key, is_enabled) VALUES

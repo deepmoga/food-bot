@@ -16,7 +16,7 @@ router.get('/:token', async (req, res) => {
 
   const settings = await getSettings(order.vendor_id);
   const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
-  const breakdown = await orderBreakdown(items, order.discount_amount, order.delivery_charge, order.vendor_id);
+  const breakdown = await orderBreakdown(items, order.discount_amount, order.delivery_charge, order.vendor_id, order.coupon_code || 'stored');
 
   const logoUrl = settings.restaurant_logo_url;
   const restName = settings.restaurant_name || 'Restaurant';

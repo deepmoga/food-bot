@@ -11,19 +11,24 @@ async function calculateGST(subtotal, vendorId) {
   return parseFloat((subtotal * percent / 100).toFixed(2));
 }
 
-async function orderBreakdown(cart, discount, deliveryCharge, vendorId) {
+async function orderBreakdown(cart, discount, deliveryCharge, vendorId, pendingCoupon = null) {
   const subtotal = cartTotal(cart);
+  let finalDiscount = discount;
+  if (!pendingCoupon) {
+    const { getAutomaticDiscount } = require('./discount');
+    finalDiscount = await getAutomaticDiscount(subtotal, vendorId);
+  }
   const gst = await calculateGST(subtotal, vendorId);
   const gstIncluded = await getSetting('gst_included', vendorId) === '1';
   const total = gstIncluded
-    ? subtotal - discount + deliveryCharge
-    : subtotal + gst - discount + deliveryCharge;
+    ? subtotal - finalDiscount + deliveryCharge
+    : subtotal + gst - finalDiscount + deliveryCharge;
   return {
     subtotal: parseFloat(subtotal.toFixed(2)),
     gst: parseFloat(gst.toFixed(2)),
     gst_included: gstIncluded,
     delivery: parseFloat(deliveryCharge.toFixed(2)),
-    discount: parseFloat(discount.toFixed(2)),
+    discount: parseFloat(finalDiscount.toFixed(2)),
     total: parseFloat(Math.max(0, total).toFixed(2))
   };
 }

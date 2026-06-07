@@ -265,7 +265,7 @@ async function sendAddressOptions(phone, vendorId, savedAddress = null) {
 async function sendPaymentButtons(phone, session, deliveryCharge, vendorId) {
   const cart = typeof session.cart === 'string' ? JSON.parse(session.cart) : (session.cart || []);
   const discount = parseFloat(session.pending_discount) || 0;
-  const breakdown = await orderBreakdown(cart, discount, deliveryCharge, vendorId);
+  const breakdown = await orderBreakdown(cart, discount, deliveryCharge, vendorId, session.pending_coupon);
   const eta = await getSetting('estimated_time', vendorId);
   const codEnabled = await getSetting('cod_enabled', vendorId);
   const onlineEnabled = await getSetting('online_payment_enabled', vendorId);

@@ -287,7 +287,12 @@ router.post('/settings', async (req, res) => {
   const vendorId = req.session.vendorId;
   const { clearCache } = require('../helpers/settings');
   for (const [key, value] of Object.entries(req.body)) {
-    await db.query('UPDATE settings SET setting_value=? WHERE vendor_id=? AND setting_key=?', [value, vendorId, key]);
+    await db.query(
+      `INSERT INTO settings (vendor_id, setting_key, setting_value) 
+       VALUES (?, ?, ?) 
+       ON DUPLICATE KEY UPDATE setting_value = ?`,
+      [vendorId, key, value, value]
+    );
   }
   clearCache(vendorId);
   res.redirect('/admin/settings?saved=1');

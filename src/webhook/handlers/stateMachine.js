@@ -157,7 +157,7 @@ async function handleTextState(phone, text, vendorId) {
       await updateSession(phone, vendorId, { temp_address: text.trim(), delivery_charge: dc, state: 'CHOOSE_PAYMENT' });
 
       const discount = parseFloat(session.pending_discount) || 0;
-      const breakdown = await orderBreakdown(cart, discount, dc, vendorId);
+      const breakdown = await orderBreakdown(cart, discount, dc, vendorId, session.pending_coupon);
       const eta = await getSetting('estimated_time', vendorId);
       const codEnabled = await getSetting('cod_enabled', vendorId);
       const onlineEnabled = await getSetting('online_payment_enabled', vendorId);
