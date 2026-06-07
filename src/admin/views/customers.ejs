@@ -1,0 +1,62 @@
+<%
+const page = 'customers';
+const title = 'Customers';
+const body = `
+<div class="page-header">
+  <h1>👥 Customer List</h1>
+  <div style="display:flex;align-items:center;gap:12px">
+    <a href="/admin/broadcast?filter=last_3months" class="btn btn-primary">
+      📢 Send Broadcast to Active (3M)
+    </a>
+  </div>
+</div>
+
+<div class="tabs">
+  <a href="/admin/customers?filter=3months" class="tab ${filter==='3months'?'active':''}">🗓️ Active in Last 3 Months</a>
+  <a href="/admin/customers?filter=all" class="tab ${filter==='all'?'active':''}">👥 All-Time Customers</a>
+</div>
+
+<form class="search-box" method="GET">
+  <input name="search" value="${search||''}" placeholder="Search customer by name or phone..." onchange="this.form.submit()">
+  <input type="hidden" name="filter" value="${filter}">
+</form>
+
+<div class="card" style="padding:0;overflow-x:auto">
+  <table>
+    <thead>
+      <tr>
+        <th>Customer Name</th>
+        <th>Phone Number</th>
+        <th>Total Orders</th>
+        <th>Total Spent</th>
+        <th>Last Order Date</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${customers.map(c => {
+        const phoneNo = c.customer_phone || c.phone;
+        const cleanPhone = phoneNo.replace(/\D/g, '');
+        // format wa link
+        const waLink = 'https://wa.me/' + (cleanPhone.startsWith('91') && cleanPhone.length === 12 ? cleanPhone : (cleanPhone.length === 10 ? '91' + cleanPhone : cleanPhone));
+        return `
+        <tr>
+          <td><strong>${c.name || '-'}</strong></td>
+          <td>${phoneNo}</td>
+          <td><span class="badge badge-confirmed" style="font-size:12px">${c.order_count} orders</span></td>
+          <td><strong>₹${Number(c.total_spent).toFixed(2)}</strong></td>
+          <td style="font-size:12px;color:#6b7280">${new Date(c.last_order_date).toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'})}</td>
+          <td>
+            <a href="${waLink}" target="_blank" class="btn btn-ghost btn-sm">
+              💬 Chat on WA
+            </a>
+          </td>
+        </tr>`;
+      }).join('')}
+      ${customers.length === 0 ? '<tr><td colspan="6" style="text-align:center;padding:32px;color:#6b7280">No customers found</td></tr>' : ''}
+    </tbody>
+  </table>
+</div>
+`;
+%>
+<%- include('layout', {body, page, title, features}) %>

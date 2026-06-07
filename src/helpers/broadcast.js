@@ -21,6 +21,10 @@ async function getRecipients(vendorId, filter) {
       query = `SELECT DISTINCT phone FROM sessions WHERE vendor_id=? AND updated_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) ${optoutClause}`;
       params.push(vendorId);
       break;
+    case 'last_3months':
+      query = `SELECT DISTINCT phone FROM orders WHERE vendor_id=? AND order_status != 'cancelled' AND created_at >= DATE_SUB(NOW(), INTERVAL 3 MONTH) ${optoutClause}`;
+      params.push(vendorId);
+      break;
     case 'ordered_3plus':
       query = `SELECT DISTINCT phone FROM orders WHERE vendor_id=? GROUP BY phone HAVING COUNT(*)>=3 AND phone NOT IN (SELECT phone FROM broadcast_optouts WHERE vendor_id=?)`;
       params.push(vendorId);

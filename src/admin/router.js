@@ -75,7 +75,30 @@ router.get('/', async (req, res) => {
       SUM(CASE WHEN order_status!='cancelled' THEN total ELSE 0 END) as total_revenue
     FROM orders WHERE vendor_id = ?`, [vendorId]);
 
-  res.render('admin/views/orders', { orders, stats, filter, search, deliveryBoys, features });
+  // Calculate popular items (limit to active orders)
+  const [popularRows] = await db.query(
+    'SELECT items FROM orders WHERE vendor_id = ? AND order_status != "cancelled"',
+    [vendorId]
+  );
+  const itemSales = {};
+  for (const row of popularRows) {
+    try {
+      const items = typeof row.items === 'string' ? JSON.parse(row.items) : row.items;
+      for (const item of items) {
+        if (!itemSales[item.name]) {
+          itemSales[item.name] = { name: item.name, qty: 0, revenue: 0 };
+        }
+        itemSales[item.name].qty += item.qty;
+        const addonPrice = (item.addons || []).reduce((s, a) => s + (a.price || 0), 0);
+        itemSales[item.name].revenue += (item.price + addonPrice) * item.qty;
+      }
+    } catch (_) {}
+  }
+  const popularItems = Object.values(itemSales)
+    .sort((a, b) => b.qty - a.qty)
+    .slice(0, 5);
+
+  res.render('admin/views/orders', { orders, stats, filter, search, deliveryBoys, features, popularItems });
 });
 
 // --- API: Update Status ---
@@ -464,6 +487,7 @@ router.get('/broadcast', async (req, res) => {
     all: await countRecipients(vendorId, 'all'),
     last_30: await countRecipients(vendorId, 'last_30'),
     last_7: await countRecipients(vendorId, 'last_7'),
+    last_3months: await countRecipients(vendorId, 'last_3months'),
     ordered_3plus: await countRecipients(vendorId, 'ordered_3plus')
   };
 
@@ -523,6 +547,44 @@ router.get('/bills', async (req, res) => {
   const [bills] = await db.query(
     'SELECT * FROM orders WHERE vendor_id=? AND bill_token IS NOT NULL ORDER BY id DESC LIMIT 200', [vendorId]);
   res.render('admin/views/bills', { bills, features });
+});
+
+// --- CUSTOMERS ---
+router.get('/customers', async (req, res) => {
+  const vendorId = req.session.vendorId;
+  const features = await getFeatures(vendorId);
+  const filter = req.query.filter || '3months';
+  const search = req.query.search || '';
+
+  let where = 'vendor_id = ? AND order_status != "cancelled"';
+  let params = [vendorId];
+
+  if (filter === '3months') {
+    where += ' AND created_at >= DATE_SUB(NOW(), INTERVAL 3 MONTH)';
+  }
+
+  if (search) {
+    where += ' AND (customer_name LIKE ? OR phone LIKE ? OR customer_phone LIKE ?)';
+    params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+  }
+
+  const [customers] = await db.query(
+    `SELECT 
+       phone, 
+       MAX(customer_name) as name, 
+       MAX(customer_phone) as customer_phone, 
+       COUNT(id) as order_count, 
+       SUM(total) as total_spent,
+       MAX(created_at) as last_order_date
+     FROM orders 
+     WHERE ${where}
+     GROUP BY phone
+     ORDER BY order_count DESC, total_spent DESC
+     LIMIT 200`,
+    params
+  );
+
+  res.render('admin/views/customers', { customers, filter, search, features });
 });
 
 module.exports = router;

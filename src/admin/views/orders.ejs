@@ -91,6 +91,31 @@ ${orders.length===0?'<tr><td colspan="9" style="text-align:center;padding:32px;c
 </table>
 </div>
 
+<div class="card" style="margin-top:24px">
+  <h3 style="margin-bottom:16px;font-size:16px">📊 Popular Food Items (Most Ordered)</h3>
+  <div style="overflow-x:auto">
+    <table>
+      <thead>
+        <tr>
+          <th>Food Item</th>
+          <th>Quantity Sold</th>
+          <th>Total Revenue</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${popularItems.map(item => `
+          <tr>
+            <td><strong>${item.name}</strong></td>
+            <td><span class="badge badge-preparing" style="font-size:12px">${item.qty} units</span></td>
+            <td><strong>₹${Number(item.revenue).toFixed(2)}</strong></td>
+          </tr>
+        `).join('')}
+        ${popularItems.length === 0 ? '<tr><td colspan="3" style="text-align:center;padding:16px;color:#6b7280">No data available</td></tr>' : ''}
+      </tbody>
+    </table>
+  </div>
+</div>
+
 <!-- Map Modal -->
 <div class="modal-overlay" id="mapModal">
   <div class="modal" style="max-width:600px">
