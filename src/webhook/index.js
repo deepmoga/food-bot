@@ -35,6 +35,7 @@ router.post('/', async (req, res) => {
     const phoneNumberId = change.metadata?.phone_number_id;
     const message = change.messages[0];
     const phone = message.from;
+    const profileName = change.contacts?.[0]?.profile?.name || null;
 
     // Identify vendor by phone_number_id
     const [vendorRows] = await db.query(
@@ -94,7 +95,7 @@ router.post('/', async (req, res) => {
 
     // Interactive buttons
     if (replyId) {
-      await handleButton(replyId, replyTitle, phone, vendorId);
+      await handleButton(replyId, replyTitle, phone, vendorId, profileName);
       return;
     }
 
@@ -107,7 +108,7 @@ router.post('/', async (req, res) => {
 
     // Text state machine
     if (msgText) {
-      await handleTextState(phone, msgText, vendorId);
+      await handleTextState(phone, msgText, vendorId, profileName);
     }
   } catch (err) {
     console.error('[Webhook] Error:', err.message, err.stack);

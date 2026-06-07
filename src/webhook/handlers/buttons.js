@@ -36,8 +36,8 @@ async function sendCategoryMenu(phone, vendorId) {
   );
 }
 
-async function handleButton(replyId, replyTitle, phone, vendorId) {
-  const session = await getSession(phone, vendorId);
+async function handleButton(replyId, replyTitle, phone, vendorId, profileName = null) {
+  const session = await getSession(phone, vendorId, profileName);
 
   // --- Category selected ---
   if (replyId.startsWith('cat_')) {

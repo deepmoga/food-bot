@@ -565,30 +565,31 @@ router.get('/customers', async (req, res) => {
   const filter = req.query.filter || '3months';
   const search = req.query.search || '';
 
-  let where = 'vendor_id = ? AND order_status != "cancelled"';
+  let where = 's.vendor_id = ?';
   let params = [vendorId];
 
   if (filter === '3months') {
-    where += ' AND created_at >= DATE_SUB(NOW(), INTERVAL 3 MONTH)';
+    where += ' AND s.updated_at >= DATE_SUB(NOW(), INTERVAL 3 MONTH)';
   }
 
   if (search) {
-    where += ' AND (customer_name LIKE ? OR phone LIKE ? OR customer_phone LIKE ?)';
-    params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    where += ' AND (s.customer_name LIKE ? OR s.phone LIKE ?)';
+    params.push(`%${search}%`, `%${search}%`);
   }
 
   const [customers] = await db.query(
     `SELECT 
-       phone, 
-       MAX(customer_name) as name, 
-       MAX(customer_phone) as customer_phone, 
-       COUNT(id) as order_count, 
-       SUM(total) as total_spent,
-       MAX(created_at) as last_order_date
-     FROM orders 
+       s.phone,
+       COALESCE(s.customer_name, '') as name,
+       COALESCE(s.customer_phone, s.phone) as customer_phone,
+       COUNT(o.id) as order_count,
+       COALESCE(SUM(o.total), 0) as total_spent,
+       COALESCE(MAX(o.created_at), s.updated_at) as last_activity
+     FROM sessions s
+     LEFT JOIN orders o ON o.phone = s.phone AND o.vendor_id = s.vendor_id AND o.order_status != 'cancelled'
      WHERE ${where}
-     GROUP BY phone
-     ORDER BY order_count DESC, total_spent DESC
+     GROUP BY s.phone, s.customer_name, s.customer_phone, s.updated_at
+     ORDER BY order_count DESC, total_spent DESC, last_activity DESC
      LIMIT 200`,
     params
   );

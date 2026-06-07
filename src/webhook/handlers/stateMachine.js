@@ -9,8 +9,8 @@ const { calculateDeliveryCharge } = require('../../helpers/geo');
 const { isFeatureEnabled } = require('../../helpers/store');
 const { sendCategoryMenu, addToCart, sendCartSummaryButtons } = require('./buttons');
 
-async function handleTextState(phone, text, vendorId) {
-  const session = await getSession(phone, vendorId);
+async function handleTextState(phone, text, vendorId, profileName = null) {
+  const session = await getSession(phone, vendorId, profileName);
   const state = session.state || 'WELCOME';
   const lower = text.toLowerCase().trim();
 

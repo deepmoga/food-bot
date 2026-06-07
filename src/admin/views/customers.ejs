@@ -28,9 +28,10 @@ const body = `
         <th style="width: 40px; text-align: center;"><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)"></th>
         <th>Customer Name</th>
         <th>Phone Number</th>
+        <th>Status</th>
         <th>Total Orders</th>
         <th>Total Spent</th>
-        <th>Last Order Date</th>
+        <th>Last Activity</th>
         <th>Action</th>
       </tr>
     </thead>
@@ -45,9 +46,18 @@ const body = `
           <td style="width: 40px; text-align: center;"><input type="checkbox" class="customer-check" value="${phoneNo}" onclick="updateSelection()"></td>
           <td><strong>${c.name || '-'}</strong></td>
           <td>${phoneNo}</td>
+          <td>
+            ${c.order_count > 0 
+              ? `<span class="badge badge-delivered" style="font-size:11px">✅ Customer</span>` 
+              : `<span class="badge badge-warning" style="font-size:11px">🆕 Lead (Scanned)</span>`
+            }
+          </td>
           <td><span class="badge badge-confirmed" style="font-size:12px">${c.order_count} orders</span></td>
           <td><strong>₹${Number(c.total_spent).toFixed(2)}</strong></td>
-          <td style="font-size:12px;color:#6b7280">${new Date(c.last_order_date).toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'})}</td>
+          <td style="font-size:12px;color:#6b7280">
+            ${new Date(c.last_activity).toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'})}
+            <span style="font-size:10px;color:#9ca3af;margin-left:4px">${new Date(c.last_activity).toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit'})}</span>
+          </td>
           <td>
             <a href="${waLink}" target="_blank" class="btn btn-ghost btn-sm">
               💬 Chat on WA
@@ -55,7 +65,7 @@ const body = `
           </td>
         </tr>`;
       }).join('')}
-      ${customers.length === 0 ? '<tr><td colspan="7" style="text-align:center;padding:32px;color:#6b7280">No customers found</td></tr>' : ''}
+      ${customers.length === 0 ? '<tr><td colspan="8" style="text-align:center;padding:32px;color:#6b7280">No customers found</td></tr>' : ''}
     </tbody>
   </table>
 </div>

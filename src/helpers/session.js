@@ -1,6 +1,6 @@
 const db = require('../config/db');
 
-async function getSession(phone, vendorId) {
+async function getSession(phone, vendorId, profileName = null) {
   const [rows] = await db.query(
     'SELECT * FROM sessions WHERE phone = ? AND vendor_id = ?',
     [phone, vendorId]
@@ -8,14 +8,21 @@ async function getSession(phone, vendorId) {
   if (rows.length > 0) {
     const s = rows[0];
     s.cart = s.cart || [];
+    if (!s.customer_name && profileName) {
+      await db.query(
+        'UPDATE sessions SET customer_name = ? WHERE phone = ? AND vendor_id = ?',
+        [profileName, phone, vendorId]
+      );
+      s.customer_name = profileName;
+    }
     return s;
   }
   // Create new session
   await db.query(
-    'INSERT INTO sessions (phone, vendor_id, state, cart) VALUES (?, ?, "WELCOME", "[]")',
-    [phone, vendorId]
+    'INSERT INTO sessions (phone, vendor_id, state, cart, customer_name) VALUES (?, ?, "WELCOME", "[]", ?)',
+    [phone, vendorId, profileName]
   );
-  return { phone, vendor_id: vendorId, state: 'WELCOME', cart: [] };
+  return { phone, vendor_id: vendorId, state: 'WELCOME', cart: [], customer_name: profileName };
 }
 
 async function updateSession(phone, vendorId, data) {
