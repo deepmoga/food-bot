@@ -194,19 +194,133 @@ async function downloadQRCode(waLink, btn) {
   const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=" + encodeURIComponent(waLink);
   const oldText = btn.innerHTML;
   btn.disabled = true;
-  btn.innerHTML = "⏳ Generating QR...";
+  btn.innerHTML = "⏳ Generating QR Poster...";
+  
   try {
-    const response = await fetch(qrUrl);
-    const blob = await response.blob();
+    const restNameInput = document.querySelector('input[name="restaurant_name"]');
+    const taglineInput = document.querySelector('input[name="restaurant_tagline"]');
+    const restName = (restNameInput ? restNameInput.value.trim() : "") || "Our Restaurant";
+    const tagline = (taglineInput ? taglineInput.value.trim() : "") || "Delicious Food, Fast Delivery";
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 600;
+    canvas.height = 850;
+    const ctx = canvas.getContext('2d');
+    
+    const qrImg = new Image();
+    qrImg.crossOrigin = "anonymous";
+    
+    const qrLoaded = new Promise((resolve, reject) => {
+      qrImg.onload = resolve;
+      qrImg.onerror = reject;
+    });
+    qrImg.src = qrUrl;
+    await qrLoaded;
+    
+    // Background
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, 600, 850);
+    
+    // Outer Border (WhatsApp Green)
+    ctx.lineWidth = 16;
+    ctx.strokeStyle = "#25D366";
+    ctx.lineJoin = "round";
+    ctx.strokeRect(8, 8, 600 - 16, 850 - 16);
+    
+    // Inner Border
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#e2e8f0";
+    ctx.strokeRect(24, 24, 600 - 48, 850 - 48);
+    
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    
+    // Restaurant Name
+    ctx.fillStyle = "#1e293b";
+    ctx.font = "bold 38px 'Segoe UI', -apple-system, sans-serif";
+    ctx.fillText(restName, 300, 90);
+    
+    // Tagline
+    ctx.fillStyle = "#64748b";
+    ctx.font = "italic 16px 'Segoe UI', -apple-system, sans-serif";
+    ctx.fillText(tagline, 300, 135);
+    
+    // Divider
+    ctx.beginPath();
+    ctx.moveTo(150, 160);
+    ctx.lineTo(450, 160);
+    ctx.strokeStyle = "#cbd5e1";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    
+    // "SCAN FOR ORDER" Badge
+    ctx.fillStyle = "#25D366";
+    const px = 150, py = 190, pw = 300, ph = 48, pr = 24;
+    ctx.beginPath();
+    ctx.moveTo(px + pr, py);
+    ctx.lineTo(px + pw - pr, py);
+    ctx.quadraticCurveTo(px + pw, py, px + pw, py + pr);
+    ctx.lineTo(px + pw, py + ph - pr);
+    ctx.quadraticCurveTo(px + pw, py + ph, px + pw - pr, py + ph);
+    ctx.lineTo(px + pr, py + ph);
+    ctx.quadraticCurveTo(px, py + ph, px, py + ph - pr);
+    ctx.lineTo(px, py + pr);
+    ctx.quadraticCurveTo(px, py, px + pr, py);
+    ctx.closePath();
+    ctx.fill();
+    
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 20px 'Segoe UI', -apple-system, sans-serif";
+    ctx.fillText("💬 SCAN FOR ORDER", 300, 214);
+    
+    // QR Code Frame
+    ctx.fillStyle = "#f8fafc";
+    ctx.strokeStyle = "#e2e8f0";
+    ctx.lineWidth = 2;
+    const qx = 130, qy = 270, qw = 340, qh = 340, qr = 16;
+    ctx.beginPath();
+    ctx.moveTo(qx + qr, qy);
+    ctx.lineTo(qx + qw - qr, qy);
+    ctx.quadraticCurveTo(qx + qw, qy, qx + qw, qy + qr);
+    ctx.lineTo(qx + qw, qy + qh - qr);
+    ctx.quadraticCurveTo(qx + qw, qy + qh, qx + qw - qr, qy + qh);
+    ctx.lineTo(qx + qr, qy + qh);
+    ctx.quadraticCurveTo(qx, qy + qh, qx, qy + qh - qr);
+    ctx.lineTo(qx, qy + qr);
+    ctx.quadraticCurveTo(qx, qy, qx + qr, qy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    
+    // QR Code Image
+    ctx.drawImage(qrImg, 150, 290, 300, 300);
+    
+    // Instructions
+    ctx.fillStyle = "#475569";
+    ctx.font = "600 15px 'Segoe UI', -apple-system, sans-serif";
+    ctx.fillText("1. Open WhatsApp Camera | 2. Scan QR | 3. Send 'Hi'", 300, 650);
+    
+    ctx.fillStyle = "#64748b";
+    ctx.font = "13px 'Segoe UI', -apple-system, sans-serif";
+    ctx.fillText("No apps to download. Order in 2 minutes!", 300, 680);
+    
+    // Thank you text
+    ctx.fillStyle = "#16a34a";
+    ctx.font = "bold 24px 'Segoe UI', -apple-system, sans-serif";
+    ctx.fillText("Thank you for ordering! 🙏", 300, 755);
+    
+    const dataUrl = canvas.toDataURL('image/png');
     const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'whatsapp-order-qr.png';
+    link.href = dataUrl;
+    const cleanName = restName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    link.download = cleanName + '_whatsapp_qr.png';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    
   } catch (error) {
-    console.error("QR Code download failed:", error);
-    alert("Failed to download QR code. Please right-click the QR image and save it.");
+    console.error("QR Code template generation failed:", error);
+    alert("Failed to generate custom QR template. Please try again.");
   } finally {
     btn.disabled = false;
     btn.innerHTML = oldText;
