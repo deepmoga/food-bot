@@ -79,7 +79,7 @@ router.get('/api/orders', async (req, res) => {
     const [orders] = await db.query(
       `SELECT id, order_number, customer_name, items, order_status, created_at 
        FROM orders 
-       WHERE vendor_id = ? AND order_status IN ('waiting', 'confirmed', 'preparing') 
+       WHERE vendor_id = ? AND order_status IN ('waiting', 'confirmed', 'preparing') AND DATE(created_at) = CURDATE()
        ORDER BY id ASC`,
       [vendorId]
     );
