@@ -51,8 +51,13 @@ ${categories.map(cat => {
               <br><button class="btn btn-ghost btn-sm" style="margin-top:6px;padding:2px 6px;font-size:10px" onclick="openAddVariant(${item.id},'${item.name.replace(/'/g,"\\'")}')">+ Size/Price</button>
             </td>
             <td><span class="badge ${item.is_available?'badge-ready':'badge-cancelled'}">${item.is_available?'Available':'Unavailable'}</span></td>
-            <td style="font-size:12px">${itemAddons.map(a=>`${a.name}${a.price>0?` +₹${a.price}`:''}`).join('<br>')||'—'}
-              <br><button class="btn btn-ghost btn-sm" onclick="openAddAddon(${item.id},'${item.name.replace(/'/g,"\\'")}')">+ Addon</button></td>
+            <td style="font-size:12px">
+              ${itemAddons.length > 0 
+                ? itemAddons.map(a => `${a.name}${a.price>0?` (+₹${a.price})`:''} <span style="cursor:pointer;color:var(--red);margin-left:4px" onclick="delAddon(${a.id})" title="Delete Addon">❌</span>`).join('<br>')
+                : '—'
+              }
+              <br><button class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="openAddAddon(${item.id},'${item.name.replace(/'/g,"\\'")}')">+ Addon</button>
+            </td>
             <td>
               <button class="btn btn-ghost btn-sm" onclick="openEditItem(${item.id},${cat.id},'${item.name.replace(/'/g,"\\'")}','${(item.description||'').replace(/'/g,"\\'")}',${item.price})">✏️</button>
               <button class="btn btn-ghost btn-sm" onclick="toggleItem(${item.id})">${item.is_available?'🔴':'🟢'}</button>
@@ -222,6 +227,13 @@ function openAddVariant(itemId, itemName) {
 function delVariant(id) {
   if(!confirm('Delete this variant?')) return;
   const f = document.createElement('form'); f.method='POST'; f.action='/admin/menu/variant';
+  f.innerHTML = '<input name="action" value="delete"><input name="id" value="'+id+'">';
+  document.body.appendChild(f); f.submit();
+}
+
+function delAddon(id) {
+  if(!confirm('Delete this addon?')) return;
+  const f = document.createElement('form'); f.method='POST'; f.action='/admin/menu/addon';
   f.innerHTML = '<input name="action" value="delete"><input name="id" value="'+id+'">';
   document.body.appendChild(f); f.submit();
 }
