@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KDS Dashboard — <%= restaurantName %></title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-dark: #0f0f12;
+    --card-bg: #1a1a24;
+    --green: #22c55e;
+    --orange: #f97316;
+    --red: #ef4444;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --border: #334155;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background-color: var(--bg-dark);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  /* Header styling */
+  header {
+    background-color: var(--card-bg);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  header h1 {
+    font-size: 20px;
+    font-weight: 700;
+  }
+  header h1 span {
+    color: var(--green);
+    font-size: 13px;
+    background-color: rgba(34, 197, 94, 0.1);
+    padding: 4px 10px;
+    border-radius: 20px;
+    margin-left: 10px;
+    vertical-align: middle;
+  }
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .btn-logout {
+    color: var(--red);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    background-color: rgba(239, 68, 68, 0.1);
+    padding: 6px 12px;
+    border-radius: 8px;
+    transition: 0.15s;
+  }
+  .btn-logout:hover {
+    background-color: rgba(239, 68, 68, 0.2);
+  }
+  
+  /* Dashboard layout */
+  .kds-container {
+    flex: 1;
+    padding: 24px;
+  }
+  
+  .kds-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+  }
+  
+  /* Order Card */
+  .order-card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    transition: transform 0.15s, border-color 0.15s;
+  }
+  
+  /* Waiting status style */
+  .order-card.status-waiting, .order-card.status-confirmed {
+    border-top: 5px solid var(--orange);
+  }
+  /* Preparing status style */
+  .order-card.status-preparing {
+    border-top: 5px solid var(--green);
+  }
+  /* Overdue order warning */
+  .order-card.overdue {
+    border-color: var(--red);
+    animation: pulse-border 2s infinite;
+  }
+  
+  @keyframes pulse-border {
+    0% { border-color: var(--border); }
+    50% { border-color: var(--red); }
+    100% { border-color: var(--border); }
+  }
+  
+  .card-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .card-header .order-no {
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .card-header .time-elapsed {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background-color: rgba(255, 255, 255, 0.05);
+    padding: 4px 8px;
+    border-radius: 6px;
+  }
+  .order-card.overdue .time-elapsed {
+    color: #fff;
+    background-color: var(--red);
+    animation: blink-time 1.5s infinite;
+  }
+  
+  @keyframes blink-time {
+    0% { opacity: 1; }
+    50% { opacity: 0.4; }
+    100% { opacity: 1; }
+  }
+  
+  .card-body {
+    padding: 16px;
+    flex: 1;
+  }
+  .customer-name {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+    font-weight: 500;
+  }
+  
+  /* Checklist items */
+  .item-list {
+    list-style: none;
+  }
+  .item-list li {
+    margin-bottom: 12px;
+    font-size: 17px;
+    font-weight: 600;
+  }
+  .item-checkbox {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .item-checkbox input {
+    margin-top: 4px;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--green);
+  }
+  .item-checkbox input:checked + span {
+    text-decoration: line-through;
+    color: var(--text-secondary);
+    opacity: 0.5;
+  }
+  
+  .addons-list {
+    margin-left: 28px;
+    font-size: 12px;
+    color: var(--orange);
+    font-weight: 500;
+    line-height: 1.4;
+  }
+  
+  /* Footer Actions */
+  .card-footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    background-color: rgba(255, 255, 255, 0.02);
+  }
+  
+  .btn-action {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .btn-action-start {
+    background-color: var(--orange);
+    color: #fff;
+  }
+  .btn-action-start:hover {
+    background-color: #ea580c;
+  }
+  .btn-action-ready {
+    background-color: var(--green);
+    color: #fff;
+  }
+  .btn-action-ready:hover {
+    background-color: #16a34a;
+  }
+  
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-secondary);
+  }
+  .empty-state .icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+  }
+  
+  /* Notifications button */
+  .sound-indicator {
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .sound-indicator.muted {
+    color: var(--red);
+    border-color: rgba(239, 68, 68, 0.3);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>👨‍🍳 <%= restaurantName %> <span>KITCHEN SCREEN</span></h1>
+  <div class="header-actions">
+    <div class="sound-indicator" id="soundBtn" onclick="toggleMute()">
+      🔊 Audio Alerts: ON
+    </div>
+    <a href="/kitchen/logout" class="btn-logout">Logout</a>
+  </div>
+</header>
+
+<div class="kds-container">
+  <div class="kds-grid" id="ordersGrid">
+    <!-- Loaded dynamically -->
+  </div>
+  
+  <div class="empty-state" id="emptyState" style="display:none">
+    <div class="icon">🌴</div>
+    <h3>No active orders!</h3>
+    <p>Kitchen is clear. Sit back and relax.</p>
+  </div>
+</div>
+
+<script>
+let lastOrderCount = -1;
+let isMuted = false;
+let audioCtx = null;
+
+// Initialize audio context on first click
+function initAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}
+
+function playNotificationSound() {
+  if (isMuted) return;
+  try {
+    initAudio();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    
+    osc.type = 'sine';
+    // Ring a nice kitchen bell: double ding
+    const now = audioCtx.currentTime;
+    
+    osc.frequency.setValueAtTime(880, now);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.4, now + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
+    
+    // Second chime
+    osc.frequency.setValueAtTime(880, now + 0.5);
+    gain.gain.setValueAtTime(0, now + 0.5);
+    gain.gain.linearRampToValueAtTime(0.4, now + 0.55);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.95);
+    
+    osc.start(now);
+    osc.stop(now + 1.0);
+  } catch (e) {
+    console.error("Audio error:", e);
+  }
+}
+
+function toggleMute() {
+  initAudio();
+  isMuted = !isMuted;
+  const btn = document.getElementById('soundBtn');
+  if (isMuted) {
+    btn.innerHTML = "🔇 Audio Alerts: OFF";
+    btn.classList.add('muted');
+  } else {
+    btn.innerHTML = "🔊 Audio Alerts: ON";
+    btn.classList.remove('muted');
+    playNotificationSound(); // Play test sound
+  }
+}
+
+async function fetchOrders() {
+  try {
+    const response = await fetch('/kitchen/api/orders');
+    if (!response.ok) throw new Error('Failed to fetch orders');
+    const orders = await response.json();
+    
+    // Play bell if new orders arrived
+    if (lastOrderCount !== -1 && orders.length > lastOrderCount) {
+      playNotificationSound();
+    }
+    lastOrderCount = orders.length;
+    
+    renderOrders(orders);
+  } catch (err) {
+    console.error('KDS poll error:', err);
+  }
+}
+
+function renderOrders(orders) {
+  const grid = document.getElementById('ordersGrid');
+  const emptyState = document.getElementById('emptyState');
+  
+  if (orders.length === 0) {
+    grid.innerHTML = '';
+    emptyState.style.display = 'block';
+    return;
+  }
+  
+  emptyState.style.display = 'none';
+  
+  // Track checked states to preserve them during refresh
+  const checkedInputs = {};
+  document.querySelectorAll('.item-checkbox input:checked').forEach(input => {
+    checkedInputs[input.id] = true;
+  });
+  
+  let html = '';
+  orders.forEach(o => {
+    const elapsedMinutes = Math.floor((new Date() - new Date(o.created_at)) / 60000);
+    const isOverdue = elapsedMinutes >= 15; // Delay highlight if > 15 mins
+    
+    let statusClass = 'status-' + o.order_status;
+    let overdueClass = isOverdue ? 'overdue' : '';
+    
+    let items = [];
+    try {
+      items = typeof o.items === 'string' ? JSON.parse(o.items) : o.items;
+    } catch(e) {}
+    
+    let itemsHtml = '';
+    items.forEach((item, idx) => {
+      const inputId = `chk_${o.id}_${idx}`;
+      const isChecked = checkedInputs[inputId] ? 'checked' : '';
+      
+      let addonText = '';
+      if (item.addons && item.addons.length > 0) {
+        addonText = `<div class="addons-list">+ ${item.addons.map(a => a.name).join(', ')}</div>`;
+      }
+      
+      itemsHtml += `
+        <li style="margin-bottom: 12px">
+          <label class="item-checkbox">
+            <input type="checkbox" id="${inputId}" ${isChecked}>
+            <span>${item.name} <strong style="color:var(--green)">x${item.qty}</strong></span>
+          </label>
+          ${addonText}
+        </li>
+      `;
+    });
+    
+    let footerAction = '';
+    if (o.order_status === 'waiting' || o.order_status === 'confirmed') {
+      footerAction = `
+        <button class="btn-action btn-action-start" onclick="updateStatus(${o.id}, 'preparing', this)">
+          🧑‍🍳 Start Preparing
+        </button>
+      `;
+    } else if (o.order_status === 'preparing') {
+      footerAction = `
+        <button class="btn-action btn-action-ready" onclick="updateStatus(${o.id}, 'ready', this)">
+          ✅ Mark Ready
+        </button>
+      `;
+    }
+    
+    html += `
+      <div class="order-card ${statusClass} ${overdueClass}">
+        <div class="card-header">
+          <span class="order-no">#${o.order_number}</span>
+          <span class="time-elapsed">⏳ ${elapsedMinutes}m ago</span>
+        </div>
+        <div class="card-body">
+          <div class="customer-name">For: ${o.customer_name || 'Customer'}</div>
+          <ul class="item-list">
+            ${itemsHtml}
+          </ul>
+        </div>
+        <div class="card-footer">
+          ${footerAction}
+        </div>
+      </div>
+    `;
+  });
+  
+  grid.innerHTML = html;
+}
+
+async function updateStatus(orderId, status, btn) {
+  initAudio();
+  const oldText = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = "⏳ Processing...";
+  
+  try {
+    const response = await fetch('/kitchen/api/update-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order_id: orderId, status: status })
+    });
+    const res = await response.json();
+    if (res.success) {
+      fetchOrders();
+    } else {
+      alert("Error: " + res.error);
+      btn.disabled = false;
+      btn.innerHTML = oldText;
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Connection error.");
+    btn.disabled = false;
+    btn.innerHTML = oldText;
+  }
+}
+
+// Poll orders every 10 seconds
+fetchOrders();
+setInterval(fetchOrders, 10000);
+
+// Interaction starts audio context to bypass browser policy
+document.body.addEventListener('click', initAudio, { once: true });
+</script>
+
+</body>
+</html>

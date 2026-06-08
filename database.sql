@@ -283,7 +283,8 @@ BEGIN
     (vid, 'happy_hour_type',      'percent',                  'Happy hour discount type (percent or flat)'),
     (vid, 'happy_hour_value',     '0',                        'Happy hour discount value'),
     (vid, 'happy_hour_start',     '16:00',                    'Happy hour start time (HH:MM)'),
-    (vid, 'happy_hour_end',       '19:00',                    'Happy hour end time (HH:MM)');
+    (vid, 'happy_hour_end',       '19:00',                    'Happy hour end time (HH:MM)'),
+    (vid, 'kitchen_passcode',     '1234',                     'Passcode for kitchen staff login (4-digits)');
 
   -- Default features (all enabled, broadcast OFF by default)
   INSERT IGNORE INTO vendor_features (vendor_id, feature_key, is_enabled) VALUES

@@ -413,7 +413,7 @@ router.get('/settings', async (req, res) => {
   const vendorId = req.session.vendorId;
   const features = await getFeatures(vendorId);
   const settings = await getSettings(vendorId);
-  res.render('admin/views/settings', { settings, features, query: req.query });
+  res.render('admin/views/settings', { settings, features, vendorId, query: req.query });
 });
 
 router.post('/settings', async (req, res) => {

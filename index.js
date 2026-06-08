@@ -44,6 +44,7 @@ app.get('/test/last-messages', async (req, res) => {
 // Routes
 app.use('/webhook', require('./src/webhook/index'));
 app.use('/admin', require('./src/admin/router'));
+app.use('/kitchen', require('./src/kitchen/router'));
 app.use('/superadmin', require('./src/superadmin/router'));
 app.use('/bill', require('./src/routes/bill'));
 app.use('/razorpay-webhook', require('./src/routes/razorpay-webhook'));

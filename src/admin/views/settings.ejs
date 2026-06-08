@@ -163,6 +163,28 @@ ${locals.query && locals.query.saved ? '<div class="alert alert-success">✅ Set
     </div>
   </div>
 
+  <div class="card" style="border:2px solid var(--orange)">
+    <h3 style="margin-bottom:4px;font-size:16px;color:var(--orange)">👨‍🍳 Kitchen Screen (KDS)</h3>
+    <p style="font-size:12px;color:#6b7280;margin-bottom:16px">
+      Kitchen staff display screen configuration. Staff can view active orders, accept them, and mark them as ready.
+    </p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end">
+      <div class="form-group" style="margin-bottom:0">
+        <label>Kitchen Passcode (4-digit code)</label>
+        <input name="kitchen_passcode" class="form-control" value="${s('kitchen_passcode') || '1234'}" placeholder="e.g. 1234" maxlength="10">
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        ${s('kitchen_passcode') ? (
+          `<button type="button" class="btn btn-ghost" style="width:100%;padding:10px;border:1px solid #d1d5db" onclick="copyKitchenLink(this)">` +
+            `🔗 Copy Kitchen Screen Link` +
+          `</button>`
+        ) : (
+          `<span style="font-size:12px;color:#ef4444">⚠️ Please save settings first to generate link.</span>`
+        )}
+      </div>
+    </div>
+  </div>
+
   <div class="card" style="border:2px solid #25d366">
     <h3 style="margin-bottom:4px;font-size:16px">📱 WhatsApp API</h3>
     <p style="font-size:12px;color:#6b7280;margin-bottom:16px">
@@ -325,6 +347,18 @@ async function downloadQRCode(waLink, btn) {
     btn.disabled = false;
     btn.innerHTML = oldText;
   }
+}
+
+function copyKitchenLink(btn) {
+  const passcode = document.querySelector('input[name="kitchen_passcode"]').value.trim();
+  const link = window.location.origin + '/kitchen?vendor_id=' + '<%= vendorId %>' + '&passcode=' + encodeURIComponent(passcode);
+  navigator.clipboard.writeText(link).then(() => {
+    const oldText = btn.innerHTML;
+    btn.innerHTML = '📋 Link Copied!';
+    setTimeout(() => { btn.innerHTML = oldText; }, 2000);
+  }).catch(() => {
+    alert('Failed to copy link. Manual link: ' + link);
+  });
 }
 </script>
 `;
