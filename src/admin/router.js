@@ -258,6 +258,75 @@ router.post('/menu/addon', async (req, res) => {
   res.redirect('/admin/menu');
 });
 
+router.post('/menu/import', async (req, res) => {
+  const vendorId = req.session.vendorId;
+  const { items } = req.body;
+
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.json({ success: false, error: 'Invalid or empty items data.' });
+  }
+
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    // Fetch existing categories to map them and prevent duplicates
+    const [existingCats] = await conn.query(
+      'SELECT id, name FROM categories WHERE vendor_id = ?',
+      [vendorId]
+    );
+    const catMap = {};
+    existingCats.forEach(c => {
+      catMap[c.name.toLowerCase().trim()] = c.id;
+    });
+
+    for (const row of items) {
+      let rawCat = String(row.Category || row.category || 'General').trim();
+      const itemName = String(row['Item Name'] || row.itemName || row.name || '').trim();
+      const description = String(row.Description || row.description || '').trim();
+      const price = parseFloat(row.Price || row.price || 0);
+      const availableVal = String(row.Available || row.available || 'Yes').trim().toLowerCase();
+      const isAvailable = (availableVal === 'yes' || availableVal === '1' || availableVal === 'true') ? 1 : 0;
+
+      if (!itemName) continue;
+
+      // Extract emoji from Category if present
+      let emoji = '';
+      const emojiMatch = rawCat.match(/[\u{1F300}-\u{1F9FF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1F1E6}-\u{1F1FF}]/u);
+      if (emojiMatch) {
+        emoji = emojiMatch[0];
+        rawCat = rawCat.replace(emoji, '').trim();
+      }
+
+      const catKey = rawCat.toLowerCase();
+      let catId = catMap[catKey];
+
+      if (!catId) {
+        const [catResult] = await conn.query(
+          'INSERT INTO categories (vendor_id, name, emoji, sort_order) VALUES (?, ?, ?, 0)',
+          [vendorId, rawCat, emoji]
+        );
+        catId = catResult.insertId;
+        catMap[catKey] = catId;
+      }
+
+      await conn.query(
+        'INSERT INTO menu_items (vendor_id, category_id, name, description, price, is_available) VALUES (?, ?, ?, ?, ?, ?)',
+        [vendorId, catId, itemName, description, price, isAvailable]
+      );
+    }
+
+    await conn.commit();
+    res.json({ success: true });
+  } catch (e) {
+    await conn.rollback();
+    console.error('[Menu Import] Error:', e.message);
+    res.json({ success: false, error: e.message });
+  } finally {
+    conn.release();
+  }
+});
+
 // --- DELIVERY BOYS ---
 router.get('/delivery', async (req, res) => {
   const vendorId = req.session.vendorId;

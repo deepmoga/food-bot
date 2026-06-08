@@ -2,9 +2,20 @@
 const page = 'menu';
 const title = 'Menu Management';
 const body = `
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+  const categoriesData = ${JSON.stringify(categories)};
+  const itemsData = ${JSON.stringify(items)};
+</script>
 <div class="page-header">
   <h1>🍽️ Menu Management</h1>
-  <button class="btn btn-primary" onclick="document.getElementById('addCatModal').classList.add('open')">+ Add Category</button>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <button class="btn btn-ghost" onclick="downloadSampleSheet()">📥 Sample Excel</button>
+    <button class="btn btn-ghost" onclick="exportMenuToExcel()">📤 Export Menu</button>
+    <button class="btn btn-primary" onclick="triggerImportFile()">📥 Import Menu</button>
+    <input type="file" id="importFileInput" accept=".xlsx, .xls, .csv" style="display:none" onchange="handleImportFile(this)">
+    <button class="btn btn-primary" onclick="document.getElementById('addCatModal').classList.add('open')">+ Add Category</button>
+  </div>
 </div>
 
 ${categories.map(cat => {
@@ -177,6 +188,106 @@ function delItem(id) {
   const f = document.createElement('form'); f.method='POST'; f.action='/admin/menu/item';
   f.innerHTML = '<input name="action" value="delete"><input name="id" value="'+id+'">';
   document.body.appendChild(f); f.submit();
+}
+
+function downloadSampleSheet() {
+  const sampleData = [
+    { "Category": "Burgers 🍔", "Item Name": "Cheese Burger", "Description": "Loaded with cheddar cheese and crisp lettuce", "Price": 149, "Available": "Yes" },
+    { "Category": "Burgers 🍔", "Item Name": "Veggie Delight", "Description": "Crispy vegetable patty with spicy mayo", "Price": 119, "Available": "Yes" },
+    { "Category": "Drinks 🥤", "Item Name": "Cold Coffee", "Description": "Rich brewed coffee blended with milk and vanilla ice-cream", "Price": 99, "Available": "Yes" },
+    { "Category": "Drinks 🥤", "Item Name": "Fresh Lime Soda", "Description": "Minty lemon soda with rock salt", "Price": 79, "Available": "No" }
+  ];
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(sampleData);
+  
+  ws['!cols'] = [
+    { wch: 18 },
+    { wch: 22 },
+    { wch: 45 },
+    { wch: 10 },
+    { wch: 10 }
+  ];
+  
+  XLSX.utils.book_append_sheet(wb, ws, "Menu Sample");
+  XLSX.writeFile(wb, "foodbot_menu_sample.xlsx");
+}
+
+function exportMenuToExcel() {
+  if (!itemsData || itemsData.length === 0) {
+    alert("No items to export.");
+    return;
+  }
+  const data = [];
+  categoriesData.forEach(cat => {
+    const catItems = itemsData.filter(i => i.category_id === cat.id);
+    catItems.forEach(item => {
+      data.push({
+        "Category": (cat.emoji ? cat.emoji + " " : "") + cat.name,
+        "Item Name": item.name,
+        "Description": item.description || "",
+        "Price": item.price,
+        "Available": item.is_available ? "Yes" : "No"
+      });
+    });
+  });
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(data);
+  
+  ws['!cols'] = [
+    { wch: 18 },
+    { wch: 22 },
+    { wch: 45 },
+    { wch: 10 },
+    { wch: 10 }
+  ];
+  
+  XLSX.utils.book_append_sheet(wb, ws, "My Menu");
+  XLSX.writeFile(wb, "menu_export.xlsx");
+}
+
+function triggerImportFile() {
+  document.getElementById('importFileInput').click();
+}
+
+async function handleImportFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      
+      if (!jsonData || jsonData.length === 0) {
+        alert("Excel sheet is empty or invalid.");
+        return;
+      }
+      
+      const response = await fetch('/admin/menu/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: jsonData })
+      });
+      
+      const resData = await response.json();
+      if (resData.success) {
+        alert("🎉 Menu items imported successfully!");
+        window.location.reload();
+      } else {
+        alert("❌ Import failed: " + resData.error);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error reading file. Please upload a valid Excel or CSV sheet.");
+    } finally {
+      input.value = "";
+    }
+  };
+  reader.readAsArrayBuffer(file);
 }
 </script>
 `;
