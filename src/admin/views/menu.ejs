@@ -6,6 +6,7 @@ const body = `
 <script>
   const categoriesData = ${JSON.stringify(categories)};
   const itemsData = ${JSON.stringify(items)};
+  const variantsData = ${JSON.stringify(variants)};
 </script>
 <div class="page-header">
   <h1>🍽️ Menu Management</h1>
@@ -35,13 +36,20 @@ ${categories.map(cat => {
       </div>
     </div>
     <table>
-      <thead><tr><th>Item</th><th>Price</th><th>Status</th><th>Addons</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Item</th><th>Price / Variants</th><th>Status</th><th>Addons</th><th>Actions</th></tr></thead>
       <tbody>
         ${catItems.length ? catItems.map(item => {
           const itemAddons = addons.filter(a => a.item_id === item.id);
+          const itemVariants = variants.filter(v => v.item_id === item.id);
           return `<tr>
             <td><strong>${item.name}</strong>${item.description?`<br><span style="font-size:11px;color:#6b7280">${item.description}</span>`:''}</td>
-            <td>₹${item.price}</td>
+            <td style="font-size:12px">
+              ${itemVariants.length > 0 
+                ? itemVariants.map(v => `${v.name}: <strong>₹${v.price}</strong> <span style="cursor:pointer;color:var(--red);margin-left:4px" onclick="delVariant(${v.id})" title="Delete Variant">❌</span>`).join('<br>')
+                : `₹${item.price}`
+              }
+              <br><button class="btn btn-ghost btn-sm" style="margin-top:6px;padding:2px 6px;font-size:10px" onclick="openAddVariant(${item.id},'${item.name.replace(/'/g,"\\'")}')">+ Size/Price</button>
+            </td>
             <td><span class="badge ${item.is_available?'badge-ready':'badge-cancelled'}">${item.is_available?'Available':'Unavailable'}</span></td>
             <td style="font-size:12px">${itemAddons.map(a=>`${a.name}${a.price>0?` +₹${a.price}`:''}`).join('<br>')||'—'}
               <br><button class="btn btn-ghost btn-sm" onclick="openAddAddon(${item.id},'${item.name.replace(/'/g,"\\'")}')">+ Addon</button></td>
@@ -142,6 +150,21 @@ ${categories.length===0?'<div class="card" style="text-align:center;padding:32px
   </div>
 </div>
 
+<!-- Add Variant Modal -->
+<div class="modal-overlay" id="addVariantModal">
+  <div class="modal">
+    <button class="close" onclick="document.getElementById('addVariantModal').classList.remove('open')">×</button>
+    <h2 id="addVariantTitle">Add Variant/Size</h2>
+    <form method="POST" action="/admin/menu/variant">
+      <input type="hidden" name="action" value="add">
+      <input type="hidden" name="item_id" id="addVariantItemId">
+      <div class="form-group"><label>Size/Variant Name</label><input name="name" class="form-control" required placeholder="e.g. Small, Medium, Large, Half, Full"></div>
+      <div class="form-group"><label>Price (₹)</label><input name="price" type="number" step="0.01" min="0" class="form-control" required placeholder="e.g. 150"></div>
+      <button type="submit" class="btn btn-primary" style="width:100%">Add Variant</button>
+    </form>
+  </div>
+</div>
+
 <script>
 function openEditCat(id, name, emoji, sort) {
   document.getElementById('editCatId').value = id;
@@ -190,12 +213,25 @@ function delItem(id) {
   document.body.appendChild(f); f.submit();
 }
 
+function openAddVariant(itemId, itemName) {
+  document.getElementById('addVariantItemId').value = itemId;
+  document.getElementById('addVariantTitle').textContent = 'Add Size/Price — ' + itemName;
+  document.getElementById('addVariantModal').classList.add('open');
+}
+
+function delVariant(id) {
+  if(!confirm('Delete this variant?')) return;
+  const f = document.createElement('form'); f.method='POST'; f.action='/admin/menu/variant';
+  f.innerHTML = '<input name="action" value="delete"><input name="id" value="'+id+'">';
+  document.body.appendChild(f); f.submit();
+}
+
 function downloadSampleSheet() {
   const sampleData = [
-    { "Category": "Burgers 🍔", "Item Name": "Cheese Burger", "Description": "Loaded with cheddar cheese and crisp lettuce", "Price": 149, "Available": "Yes" },
-    { "Category": "Burgers 🍔", "Item Name": "Veggie Delight", "Description": "Crispy vegetable patty with spicy mayo", "Price": 119, "Available": "Yes" },
-    { "Category": "Drinks 🥤", "Item Name": "Cold Coffee", "Description": "Rich brewed coffee blended with milk and vanilla ice-cream", "Price": 99, "Available": "Yes" },
-    { "Category": "Drinks 🥤", "Item Name": "Fresh Lime Soda", "Description": "Minty lemon soda with rock salt", "Price": 79, "Available": "No" }
+    { "Category": "Burgers 🍔", "Item Name": "Cheese Burger", "Variant": "Small", "Description": "Loaded with cheddar cheese and crisp lettuce", "Price": 119, "Available": "Yes" },
+    { "Category": "Burgers 🍔", "Item Name": "Cheese Burger", "Variant": "Medium", "Description": "Loaded with cheddar cheese and crisp lettuce", "Price": 149, "Available": "Yes" },
+    { "Category": "Burgers 🍔", "Item Name": "Cheese Burger", "Variant": "Large", "Description": "Loaded with cheddar cheese and crisp lettuce", "Price": 199, "Available": "Yes" },
+    { "Category": "Drinks 🥤", "Item Name": "Fresh Lime Soda", "Variant": "", "Description": "Minty lemon soda with rock salt", "Price": 79, "Available": "Yes" }
   ];
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(sampleData);
@@ -203,6 +239,7 @@ function downloadSampleSheet() {
   ws['!cols'] = [
     { wch: 18 },
     { wch: 22 },
+    { wch: 12 },
     { wch: 45 },
     { wch: 10 },
     { wch: 10 }
@@ -221,13 +258,28 @@ function exportMenuToExcel() {
   categoriesData.forEach(cat => {
     const catItems = itemsData.filter(i => i.category_id === cat.id);
     catItems.forEach(item => {
-      data.push({
-        "Category": (cat.emoji ? cat.emoji + " " : "") + cat.name,
-        "Item Name": item.name,
-        "Description": item.description || "",
-        "Price": item.price,
-        "Available": item.is_available ? "Yes" : "No"
-      });
+      const itemVariants = variantsData.filter(v => v.item_id === item.id);
+      if (itemVariants.length > 0) {
+        itemVariants.forEach(v => {
+          data.push({
+            "Category": (cat.emoji ? cat.emoji + " " : "") + cat.name,
+            "Item Name": item.name,
+            "Variant": v.name,
+            "Description": item.description || "",
+            "Price": v.price,
+            "Available": item.is_available ? "Yes" : "No"
+          });
+        });
+      } else {
+        data.push({
+          "Category": (cat.emoji ? cat.emoji + " " : "") + cat.name,
+          "Item Name": item.name,
+          "Variant": "",
+          "Description": item.description || "",
+          "Price": item.price,
+          "Available": item.is_available ? "Yes" : "No"
+        });
+      }
     });
   });
   const wb = XLSX.utils.book_new();
@@ -236,6 +288,7 @@ function exportMenuToExcel() {
   ws['!cols'] = [
     { wch: 18 },
     { wch: 22 },
+    { wch: 12 },
     { wch: 45 },
     { wch: 10 },
     { wch: 10 }

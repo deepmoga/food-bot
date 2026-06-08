@@ -227,7 +227,22 @@ router.get('/menu', async (req, res) => {
   const [categories] = await db.query('SELECT * FROM categories WHERE vendor_id=? ORDER BY sort_order, name', [vendorId]);
   const [items] = await db.query('SELECT mi.*, c.name as cat_name FROM menu_items mi JOIN categories c ON c.id=mi.category_id WHERE mi.vendor_id=? ORDER BY c.sort_order, mi.name', [vendorId]);
   const [addons] = await db.query('SELECT ia.*, mi.name as item_name FROM item_addons ia JOIN menu_items mi ON mi.id=ia.item_id WHERE mi.vendor_id=? ORDER BY ia.sort_order', [vendorId]);
-  res.render('admin/views/menu', { categories, items, addons, features });
+  const [variants] = await db.query('SELECT iv.*, mi.name as item_name FROM item_variants iv JOIN menu_items mi ON mi.id=iv.item_id WHERE mi.vendor_id=? ORDER BY iv.sort_order', [vendorId]);
+  res.render('admin/views/menu', { categories, items, addons, variants, features });
+});
+
+router.post('/menu/variant', async (req, res) => {
+  const vendorId = req.session.vendorId;
+  const { action, id, item_id, name, price } = req.body;
+  if (action === 'add') {
+    const [rows] = await db.query('SELECT id FROM menu_items WHERE id=? AND vendor_id=?', [item_id, vendorId]);
+    if (rows.length) {
+      await db.query('INSERT INTO item_variants (item_id, name, price) VALUES (?, ?, ?)', [item_id, name, price || 0]);
+    }
+  } else if (action === 'delete') {
+    await db.query('DELETE FROM item_variants WHERE id=? AND item_id IN (SELECT id FROM menu_items WHERE vendor_id=?)', [id, vendorId]);
+  }
+  res.redirect('/admin/menu');
 });
 
 router.post('/menu/category', async (req, res) => {
@@ -280,6 +295,16 @@ router.post('/menu/import', async (req, res) => {
       catMap[c.name.toLowerCase().trim()] = c.id;
     });
 
+    // Fetch existing menu items to prevent duplicate base items
+    const [existingItems] = await conn.query(
+      'SELECT id, category_id, name FROM menu_items WHERE vendor_id = ?',
+      [vendorId]
+    );
+    const itemMap = {};
+    existingItems.forEach(i => {
+      itemMap[`${i.category_id}:${i.name.toLowerCase().trim()}`] = i.id;
+    });
+
     for (const row of items) {
       let rawCat = String(row.Category || row.category || 'General').trim();
       const itemName = String(row['Item Name'] || row.itemName || row.name || '').trim();
@@ -310,10 +335,26 @@ router.post('/menu/import', async (req, res) => {
         catMap[catKey] = catId;
       }
 
-      await conn.query(
-        'INSERT INTO menu_items (vendor_id, category_id, name, description, price, is_available) VALUES (?, ?, ?, ?, ?, ?)',
-        [vendorId, catId, itemName, description, price, isAvailable]
-      );
+      const itemKey = `${catId}:${itemName.toLowerCase()}`;
+      let itemId = itemMap[itemKey];
+
+      if (!itemId) {
+        const [itemResult] = await conn.query(
+          'INSERT INTO menu_items (vendor_id, category_id, name, description, price, is_available) VALUES (?, ?, ?, ?, ?, ?)',
+          [vendorId, catId, itemName, description, price, isAvailable]
+        );
+        itemId = itemResult.insertId;
+        itemMap[itemKey] = itemId;
+      }
+
+      // If variant is present, insert it
+      const variantName = String(row.Variant || row.variant || row.Size || row.size || '').trim();
+      if (variantName) {
+        await conn.query(
+          'INSERT INTO item_variants (item_id, name, price, is_active) VALUES (?, ?, ?, 1)',
+          [itemId, variantName, price]
+        );
+      }
     }
 
     await conn.commit();

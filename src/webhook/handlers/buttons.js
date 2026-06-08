@@ -65,6 +65,32 @@ async function handleButton(replyId, replyTitle, phone, vendorId, profileName = 
     const [items] = await db.query('SELECT * FROM menu_items WHERE id = ? AND vendor_id = ?', [itemId, vendorId]);
     if (!items.length) return;
 
+    // Check if item has variants
+    const [variants] = await db.query(
+      'SELECT * FROM item_variants WHERE item_id = ? AND is_active = 1 ORDER BY sort_order, name',
+      [itemId]
+    );
+
+    if (variants.length > 0) {
+      await updateSession(phone, vendorId, { pending_item_id: itemId, state: 'SELECT_VARIANT', pending_addons: null, pending_variant_id: null });
+      const bodyText = `*${items[0].name}*\n\nPlease select your preferred size/variant:`;
+      if (variants.length <= 3) {
+        const buttons = variants.map(v => ({
+          id: `var_${v.id}`,
+          title: `${v.name} (₹${v.price})`.substring(0, 20)
+        }));
+        await sendButtonMessage(phone, bodyText, buttons, vendorId);
+      } else {
+        const rows = variants.map(v => ({
+          id: `var_${v.id}`,
+          title: v.name,
+          description: `Price: ₹${v.price}`
+        }));
+        await sendListMessage(phone, items[0].name, 'Choose size:', 'Options', '📋 Select Size', [{ title: 'Sizes', rows }], vendorId);
+      }
+      return;
+    }
+
     const [addons] = await db.query(
       'SELECT * FROM item_addons WHERE item_id = ? AND is_active = 1 ORDER BY sort_order, name',
       [itemId]
@@ -79,6 +105,36 @@ async function handleButton(replyId, replyTitle, phone, vendorId, profileName = 
         vendorId);
     } else {
       await sendWhatsApp(phone, `*${items[0].name}* — ₹${items[0].price}\n\nHow many do you want? (Enter quantity)`, vendorId);
+    }
+    return;
+  }
+
+  // --- Variant selected ---
+  if (replyId.startsWith('var_')) {
+    const variantId = parseInt(replyId.replace('var_', ''));
+    const [[variant]] = await db.query('SELECT * FROM item_variants WHERE id = ?', [variantId]);
+    if (!variant) return;
+
+    await updateSession(phone, vendorId, { pending_variant_id: variantId });
+
+    const itemId = session.pending_item_id;
+    const [[item]] = await db.query('SELECT name FROM menu_items WHERE id = ?', [itemId]);
+    const itemName = item ? item.name : 'Item';
+
+    const [addons] = await db.query(
+      'SELECT * FROM item_addons WHERE item_id = ? AND is_active = 1 ORDER BY sort_order, name',
+      [itemId]
+    );
+
+    if (addons.length) {
+      await updateSession(phone, vendorId, { state: 'SELECT_ADDON' });
+      const addonList = addons.map((a, i) => `${i + 1}. ${a.name}${a.price > 0 ? ` (+₹${a.price})` : ''}`).join('\n');
+      await sendWhatsApp(phone,
+        `*${itemName} (${variant.name})* — ₹${variant.price}\n\n🍴 *Available add-ons:*\n${addonList}\n\nType the numbers of add-ons you want (e.g. *1 3*)\nor type *skip* to continue without add-ons.`,
+        vendorId);
+    } else {
+      await updateSession(phone, vendorId, { state: 'SELECT_QTY' });
+      await sendWhatsApp(phone, `*${itemName} (${variant.name})* — ₹${variant.price}\n\nHow many do you want? (Enter quantity)`, vendorId);
     }
     return;
   }
@@ -201,6 +257,19 @@ async function addToCart(phone, qty, session, vendorId) {
   if (!items.length) return;
   const item = items[0];
 
+  let itemPrice = parseFloat(item.price);
+  let itemName = item.name;
+  let variantId = null;
+
+  if (session.pending_variant_id) {
+    const [[variant]] = await db.query('SELECT * FROM item_variants WHERE id = ?', [session.pending_variant_id]);
+    if (variant) {
+      itemPrice = parseFloat(variant.price);
+      itemName = `${item.name} (${variant.name})`;
+      variantId = variant.id;
+    }
+  }
+
   let addons = [];
   const pendingAddons = session.pending_addons;
   if (pendingAddons) {
@@ -211,13 +280,28 @@ async function addToCart(phone, qty, session, vendorId) {
     }
   }
 
-  // Check if same item+addons already in cart
-  const existingIdx = cart.findIndex(c => c.id === item.id && JSON.stringify(c.addons) === JSON.stringify(addons));
-  if (existingIdx >= 0) cart[existingIdx].qty += qty;
-  else cart.push({ id: item.id, name: item.name, price: parseFloat(item.price), qty, addons });
+  // Check if same item+variant+addons already in cart
+  const existingIdx = cart.findIndex(c => 
+    c.id === item.id && 
+    c.variant_id === variantId && 
+    JSON.stringify(c.addons) === JSON.stringify(addons)
+  );
+
+  if (existingIdx >= 0) {
+    cart[existingIdx].qty += qty;
+  } else {
+    cart.push({ 
+      id: item.id, 
+      name: itemName, 
+      price: itemPrice, 
+      qty, 
+      addons, 
+      variant_id: variantId 
+    });
+  }
 
   await saveCart(phone, vendorId, cart);
-  await updateSession(phone, vendorId, { pending_item_id: null, pending_addons: null, state: 'CATEGORY_SELECT' });
+  await updateSession(phone, vendorId, { pending_item_id: null, pending_addons: null, pending_variant_id: null, state: 'CATEGORY_SELECT' });
   await sendCartSummaryButtons(phone, cart, vendorId);
 }
 

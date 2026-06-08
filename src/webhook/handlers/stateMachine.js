@@ -79,6 +79,41 @@ async function handleTextState(phone, text, vendorId, profileName = null) {
       await sendCategoryMenu(phone, vendorId);
       break;
 
+    case 'SELECT_VARIANT': {
+      const itemId = session.pending_item_id;
+      const [variants] = await db.query(
+        'SELECT * FROM item_variants WHERE item_id = ? AND is_active = 1 ORDER BY sort_order, name',
+        [itemId]
+      );
+      const idx = parseInt(text) - 1;
+      if (isNaN(idx) || idx < 0 || idx >= variants.length) {
+        await sendWhatsApp(phone, '❌ Invalid selection. Please enter a number from the list or tap a button.', vendorId);
+        return;
+      }
+      const variant = variants[idx];
+      await updateSession(phone, vendorId, { pending_variant_id: variant.id });
+
+      const [[item]] = await db.query('SELECT name FROM menu_items WHERE id = ?', [itemId]);
+      const itemName = item ? item.name : 'Item';
+
+      const [addons] = await db.query(
+        'SELECT * FROM item_addons WHERE item_id = ? AND is_active = 1 ORDER BY sort_order, name',
+        [itemId]
+      );
+
+      if (addons.length) {
+        await updateSession(phone, vendorId, { state: 'SELECT_ADDON' });
+        const addonList = addons.map((a, i) => `${i + 1}. ${a.name}${a.price > 0 ? ` (+₹${a.price})` : ''}`).join('\n');
+        await sendWhatsApp(phone,
+          `*${itemName} (${variant.name})* — ₹${variant.price}\n\n🍴 *Available add-ons:*\n${addonList}\n\nType the numbers of add-ons you want (e.g. *1 3*)\nor type *skip* to continue without add-ons.`,
+          vendorId);
+      } else {
+        await updateSession(phone, vendorId, { state: 'SELECT_QTY' });
+        await sendWhatsApp(phone, `*${itemName} (${variant.name})* — ₹${variant.price}\n\nHow many do you want? (Enter quantity)`, vendorId);
+      }
+      break;
+    }
+
     case 'SELECT_ADDON': {
       const [items] = await db.query('SELECT * FROM menu_items WHERE id = ? AND vendor_id = ?', [session.pending_item_id, vendorId]);
       const [allAddons] = await db.query('SELECT * FROM item_addons WHERE item_id = ? AND is_active = 1 ORDER BY sort_order, name', [session.pending_item_id]);
@@ -94,7 +129,18 @@ async function handleTextState(phone, text, vendorId, profileName = null) {
       }
 
       await updateSession(phone, vendorId, { pending_addons: selectedAddonIds, state: 'SELECT_QTY' });
-      await sendWhatsApp(phone, `*${items[0]?.name}* — ₹${items[0]?.price}\n\nHow many do you want? (Enter quantity)`, vendorId);
+
+      let itemName = items[0]?.name || 'Item';
+      let itemPrice = parseFloat(items[0]?.price || 0);
+      if (session.pending_variant_id) {
+        const [[variant]] = await db.query('SELECT * FROM item_variants WHERE id = ?', [session.pending_variant_id]);
+        if (variant) {
+          itemName = `${items[0]?.name} (${variant.name})`;
+          itemPrice = parseFloat(variant.price);
+        }
+      }
+
+      await sendWhatsApp(phone, `*${itemName}* — ₹${itemPrice}\n\nHow many do you want? (Enter quantity)`, vendorId);
       break;
     }
 
