@@ -351,7 +351,7 @@ async function downloadQRCode(waLink, btn) {
 
 function copyKitchenLink(btn) {
   const passcode = document.querySelector('input[name="kitchen_passcode"]').value.trim();
-  const link = window.location.origin + '/kitchen?vendor_id=' + '<%= vendorId %>' + '&passcode=' + encodeURIComponent(passcode);
+  const link = window.location.origin + '/kitchen?vendor_id=' + '${vendorId}' + '&passcode=' + encodeURIComponent(passcode);
   navigator.clipboard.writeText(link).then(() => {
     const oldText = btn.innerHTML;
     btn.innerHTML = '📋 Link Copied!';
