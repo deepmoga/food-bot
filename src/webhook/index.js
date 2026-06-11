@@ -37,27 +37,51 @@ router.post('/', async (req, res) => {
     const phone = message.from;
     const profileName = change.contacts?.[0]?.profile?.name || null;
 
-    // Identify vendor by phone_number_id
-    const [vendorRows] = await db.query(
-      "SELECT vendor_id FROM settings WHERE setting_key = 'whatsapp_phone_id' AND setting_value = ?",
-      [phoneNumberId]
-    );
-    if (!vendorRows.length) return;
-    const vendorId = vendorRows[0].vendor_id;
+    // Identify vendor mode (Platform Shared Number or Dedicated Number)
+    const { getPlatformSetting } = require('../helpers/platformSettings');
+    const platformSharedPhoneId = await getPlatformSetting('platform_shared_phone_id');
+    const platformVendorIdStr = await getPlatformSetting('platform_vendor_id');
+    const platformVendorId = platformVendorIdStr ? parseInt(platformVendorIdStr) : null;
+    let vendorId;
+    let isDirectoryMode = false;
+
+    if (platformSharedPhoneId && phoneNumberId === platformSharedPhoneId) {
+      isDirectoryMode = true;
+      vendorId = platformVendorId;
+      if (!vendorId) {
+        console.error('[Webhook] Platform vendor ID not configured in platform_settings');
+        return;
+      }
+    } else {
+      // Dedicated Mode
+      const [vendorRows] = await db.query(
+        "SELECT vendor_id FROM settings WHERE setting_key = 'whatsapp_phone_id' AND setting_value = ?",
+        [phoneNumberId]
+      );
+      if (!vendorRows.length) return;
+      vendorId = vendorRows[0].vendor_id;
+    }
+
+    // Load session to identify if we have a selected vendor context
+    const { getSession } = require('../helpers/session');
+    const session = await getSession(phone, vendorId, profileName);
+    const activeVendorId = session.selected_vendor_id || vendorId;
 
     // Check vendor is active
-    const [vendorCheck] = await db.query('SELECT is_active FROM vendors WHERE id = ?', [vendorId]);
+    const [vendorCheck] = await db.query('SELECT is_active FROM vendors WHERE id = ?', [activeVendorId]);
     if (!vendorCheck.length || !vendorCheck[0].is_active) return;
 
-    // Check message quota (24-hr conversation window)
-    const { allowed } = await checkAndConsumeWindow(phone, vendorId);
-    if (!allowed) {
-      await require('../helpers/whatsapp').sendWhatsApp(
-        phone,
-        `Sorry, our WhatsApp ordering service is temporarily unavailable due to a technical limit.\n\nPlease call us directly or visit us in person.\n\n_Service will resume once the message quota is renewed._`,
-        vendorId
-      );
-      return;
+    // Check message quota (skip directory selection phase for platform vendor)
+    if (activeVendorId !== platformVendorId) {
+      const { allowed } = await checkAndConsumeWindow(phone, activeVendorId);
+      if (!allowed) {
+        await require('../helpers/whatsapp').sendWhatsApp(
+          phone,
+          `Sorry, our WhatsApp ordering service is temporarily unavailable due to a technical limit.\n\nPlease call us directly or visit us in person.\n\n_Service will resume once the message quota is renewed._`,
+          activeVendorId
+        );
+        return;
+      }
     }
 
     const msgType = message.type;
@@ -65,8 +89,8 @@ router.post('/', async (req, res) => {
     // Handle location
     if (msgType === 'location') {
       const loc = message.location;
-      await logMessage(phone, 'in', `[LOCATION] ${loc.latitude},${loc.longitude}`, vendorId);
-      await handleLocation(phone, loc.latitude, loc.longitude, loc.name, loc.address, vendorId);
+      await logMessage(phone, 'in', `[LOCATION] ${loc.latitude},${loc.longitude}`, activeVendorId);
+      await handleLocation(phone, loc.latitude, loc.longitude, loc.name, loc.address, activeVendorId);
       return;
     }
 
@@ -77,18 +101,18 @@ router.post('/', async (req, res) => {
     const replyId = message.interactive?.button_reply?.id || message.interactive?.list_reply?.id || '';
     const replyTitle = message.interactive?.button_reply?.title || message.interactive?.list_reply?.title || '';
 
-    await logMessage(phone, 'in', msgText || replyId, vendorId);
+    await logMessage(phone, 'in', msgText || replyId, activeVendorId);
 
     // Delivery boy buttons — skip store open check
-    if (replyId && await handleDeliveryButtons(replyId, phone, vendorId)) return;
+    if (replyId && await handleDeliveryButtons(replyId, phone, activeVendorId)) return;
 
-    // Store open/closed check — skip for universal commands
-    const universalCmds = ['hi', 'hello', 'menu', 'timings', 'help'];
-    if (!universalCmds.includes(msgText?.toLowerCase())) {
-      const { open } = await isStoreOpen(vendorId);
+    // Store open/closed check — skip for universal commands and platform selection
+    const universalCmds = ['hi', 'hello', 'menu', 'timings', 'help', 'exit', 'change'];
+    if (activeVendorId !== platformVendorId && !universalCmds.includes(msgText?.toLowerCase())) {
+      const { open } = await isStoreOpen(activeVendorId);
       if (!open) {
-        const closedMsg = await getClosedMessage(vendorId);
-        await require('../helpers/whatsapp').sendWhatsApp(phone, closedMsg, vendorId);
+        const closedMsg = await getClosedMessage(activeVendorId);
+        await require('../helpers/whatsapp').sendWhatsApp(phone, closedMsg, activeVendorId);
         return;
       }
     }
@@ -101,8 +125,8 @@ router.post('/', async (req, res) => {
 
     // STOP — opt out from broadcast
     if (msgText && msgText.trim().toUpperCase() === 'STOP') {
-      await db.query('INSERT IGNORE INTO broadcast_optouts (vendor_id, phone) VALUES (?,?)', [vendorId, phone]);
-      await require('../helpers/whatsapp').sendWhatsApp(phone, 'Aapko broadcast list se remove kar diya gaya hai. ✅\n\nWapas join karne ke liye "START" bhejein.', vendorId);
+      await db.query('INSERT IGNORE INTO broadcast_optouts (vendor_id, phone) VALUES (?,?)', [activeVendorId, phone]);
+      await require('../helpers/whatsapp').sendWhatsApp(phone, 'Aapko broadcast list se remove kar diya gaya hai. ✅\n\nWapas join karne ke liye "START" bhejein.', activeVendorId);
       return;
     }
 

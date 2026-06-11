@@ -63,7 +63,7 @@ async function resetSession(phone, vendorId) {
       state='WELCOME', cart='[]', pending_item_id=NULL, pending_variant_id=NULL, pending_coupon=NULL,
       pending_discount=0, delivery_charge=0, payment_method=NULL, pending_addons=NULL,
       temp_address=NULL, temp_lat=NULL, temp_lng=NULL, temp_dist=NULL,
-      customer_name=NULL, customer_phone=NULL
+      customer_name=NULL, customer_phone=NULL, selected_vendor_id=NULL
     WHERE phone = ? AND vendor_id = ?`,
     [phone, vendorId]
   );

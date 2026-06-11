@@ -76,6 +76,11 @@ input:focus,textarea:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102
           style="font-size:11px"><%= waToken %></textarea>
         <div class="hint">Meta Business Manager → System Users → Generate Token (whatsapp_business_messaging + whatsapp_business_management permissions)</div>
       </div>
+      <div class="form-group" style="margin-top:14px">
+        <label>Platform Shared Phone Number ID (Trial Directory Mode)</label>
+        <input type="text" name="platform_shared_phone_id" value="<%= platformSharedPhoneId %>" placeholder="e.g. 109876543210123">
+        <div class="hint">Trial vendors will use this shared WhatsApp Phone ID. Leave empty if not using directory mode.</div>
+      </div>
     </div>
 
     <!-- Razorpay -->
@@ -109,6 +114,10 @@ input:focus,textarea:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102
   <!-- Status Card -->
   <div class="card" style="background:#f9fafb;margin-top:20px">
     <h3 style="color:#374151;margin-bottom:14px">📊 Current Status</h3>
+    <div class="status-row">
+      <span class="dot <%= platformSharedPhoneId ? 'dot-green' : 'dot-red' %>"></span>
+      Platform Shared Phone ID: <strong><%= platformSharedPhoneId || 'Not set (Directory Mode disabled)' %></strong>
+    </div>
     <div class="status-row">
       <span class="dot <%= wabaId ? 'dot-green' : 'dot-red' %>"></span>
       WABA ID: <strong><%= wabaId || 'Not set ⚠️' %></strong>

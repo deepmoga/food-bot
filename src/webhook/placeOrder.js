@@ -10,6 +10,7 @@ const db = require('../config/db');
 
 async function placeOrder(phone, vendorId) {
   const session = await getSession(phone, vendorId);
+  const activeVendorId = session.selected_vendor_id || vendorId;
   const cart = typeof session.cart === 'string' ? JSON.parse(session.cart) : (session.cart || []);
 
   if (!cart.length) {
@@ -20,25 +21,25 @@ async function placeOrder(phone, vendorId) {
   const total = cartTotal(cart);
   const discount = parseFloat(session.pending_discount) || 0;
   const delivery = parseFloat(session.delivery_charge) || 0;
-  const breakdown = await orderBreakdown(cart, discount, delivery, vendorId, session.pending_coupon);
+  const breakdown = await orderBreakdown(cart, discount, delivery, activeVendorId, session.pending_coupon);
 
-  const order = await createOrder(session, cart, breakdown, vendorId);
+  const order = await createOrder(session, cart, breakdown, activeVendorId);
 
   // Record coupon usage
   if (session.pending_coupon && session.pending_discount > 0) {
     const [cRows] = await db.query(
       'SELECT id FROM coupons WHERE vendor_id = ? AND code = ?',
-      [vendorId, session.pending_coupon]
+      [activeVendorId, session.pending_coupon]
     );
     if (cRows.length) {
-      await applyCouponUsage(cRows[0].id, phone, order.id, discount, vendorId);
+      await applyCouponUsage(cRows[0].id, phone, order.id, discount, activeVendorId);
     }
   }
 
   await resetSession(phone, vendorId);
 
-  const eta = await getSetting('estimated_time', vendorId);
-  const restName = await getSetting('restaurant_name', vendorId) || 'Restaurant';
+  const eta = await getSetting('estimated_time', activeVendorId);
+  const restName = await getSetting('restaurant_name', activeVendorId) || 'Restaurant';
   const summary = cartSummary(cart);
 
   if (session.payment_method === 'cod') {
@@ -69,13 +70,13 @@ async function placeOrder(phone, vendorId) {
       customer_phone: session.customer_phone,
       payment_method: 'cod',
       total: breakdown.total
-    }, vendorId);
+    }, activeVendorId);
 
   } else {
     // Online payment
     try {
       const [orderRow] = await db.query('SELECT * FROM orders WHERE id = ?', [order.id]);
-      const paymentLink = await createPaymentLink(orderRow[0], vendorId);
+      const paymentLink = await createPaymentLink(orderRow[0], activeVendorId);
 
       await db.query('UPDATE orders SET payment_link = ? WHERE id = ?', [paymentLink, order.id]);
 
@@ -99,7 +100,7 @@ async function placeOrder(phone, vendorId) {
         customer_phone: session.customer_phone,
         payment_method: 'online',
         total: breakdown.total
-      }, vendorId);
+      }, activeVendorId);
     } catch (e) {
       console.error('[placeOrder] Razorpay error:', e.message);
       await sendWhatsApp(phone, '❌ Payment link generate karne mein error aaya. Please contact us.', vendorId);

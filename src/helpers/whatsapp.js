@@ -6,10 +6,18 @@ const db = require('../config/db');
 const BASE_URL = 'https://graph.facebook.com/v18.0';
 
 async function getWAConfig(vendorId) {
-  const [vendorToken, phoneId, platformToken] = await Promise.all([
+  const platformVendorIdStr = await getPlatformSetting('platform_vendor_id');
+  const platformVendorId = platformVendorIdStr ? parseInt(platformVendorIdStr) : null;
+  const platformSharedPhoneId = await getPlatformSetting('platform_shared_phone_id');
+  const platformToken = await getPlatformSetting('platform_whatsapp_token');
+
+  if (platformVendorId && vendorId === platformVendorId) {
+    return { token: platformToken, phoneId: platformSharedPhoneId };
+  }
+
+  const [vendorToken, phoneId] = await Promise.all([
     getSetting('whatsapp_token', vendorId),
-    getSetting('whatsapp_phone_id', vendorId),
-    getPlatformSetting('platform_whatsapp_token')
+    getSetting('whatsapp_phone_id', vendorId)
   ]);
   // Use vendor's own token if set, otherwise fall back to platform token
   const token = (vendorToken && vendorToken.trim()) ? vendorToken.trim() : platformToken;

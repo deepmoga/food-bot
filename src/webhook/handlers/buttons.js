@@ -9,10 +9,12 @@ const { isFeatureEnabled } = require('../../helpers/store');
 const { placeOrder } = require('../placeOrder');
 
 async function sendCategoryMenu(phone, vendorId) {
-  const restName = await getSetting('restaurant_name', vendorId);
+  const session = await getSession(phone, vendorId);
+  const activeVendorId = session.selected_vendor_id || vendorId;
+  const restName = await getSetting('restaurant_name', activeVendorId);
   const [cats] = await db.query(
     'SELECT * FROM categories WHERE vendor_id = ? AND is_active = 1 ORDER BY sort_order, name',
-    [vendorId]
+    [activeVendorId]
   );
   if (!cats.length) {
     await sendWhatsApp(phone, '❌ No menu categories available right now.', vendorId);
@@ -39,12 +41,35 @@ async function sendCategoryMenu(phone, vendorId) {
 async function handleButton(replyId, replyTitle, phone, vendorId, profileName = null) {
   const session = await getSession(phone, vendorId, profileName);
 
+  // --- Platform Directory buttons ---
+  if (replyId.startsWith('city_')) {
+    const city = replyId.replace('city_', '');
+    await updateSession(phone, vendorId, { temp_address: city, state: 'SELECT_RESTAURANT' });
+    await sendRestaurantList(phone, city, vendorId);
+    return;
+  }
+
+  if (replyId.startsWith('rest_')) {
+    const restId = parseInt(replyId.replace('rest_', ''));
+    const [[vendor]] = await db.query('SELECT name FROM vendors WHERE id = ? AND is_active = 1', [restId]);
+    if (!vendor) {
+      await sendWhatsApp(phone, '❌ Selected restaurant is currently unavailable.', vendorId);
+      return;
+    }
+    await updateSession(phone, vendorId, { selected_vendor_id: restId, state: 'CATEGORY_SELECT' });
+    await sendWhatsApp(phone, `Welcome to *${vendor.name}*! 🏪`, restId);
+    await sendCategoryMenu(phone, restId);
+    return;
+  }
+
+  const activeVendorId = session.selected_vendor_id || vendorId;
+
   // --- Category selected ---
   if (replyId.startsWith('cat_')) {
     const catId = parseInt(replyId.replace('cat_', ''));
     const [items] = await db.query(
       'SELECT * FROM menu_items WHERE category_id = ? AND vendor_id = ? AND is_available = 1 ORDER BY name',
-      [catId, vendorId]
+      [catId, activeVendorId]
     );
     if (!items.length) {
       await sendWhatsApp(phone, '❌ No items available in this category.', vendorId);
@@ -62,7 +87,7 @@ async function handleButton(replyId, replyTitle, phone, vendorId, profileName = 
   // --- Item selected ---
   if (replyId.startsWith('item_')) {
     const itemId = parseInt(replyId.replace('item_', ''));
-    const [items] = await db.query('SELECT * FROM menu_items WHERE id = ? AND vendor_id = ?', [itemId, vendorId]);
+    const [items] = await db.query('SELECT * FROM menu_items WHERE id = ? AND vendor_id = ?', [itemId, activeVendorId]);
     if (!items.length) return;
 
     // Check if item has variants
@@ -194,7 +219,7 @@ async function handleButton(replyId, replyTitle, phone, vendorId, profileName = 
   if (replyId === 'btn_use_saved_addr') {
     const cart = typeof session.cart === 'string' ? JSON.parse(session.cart) : session.cart;
     const total = cartTotal(cart);
-    const dc = await calculateDeliveryCharge(total, vendorId);
+    const dc = await calculateDeliveryCharge(total, activeVendorId);
     await updateSession(phone, vendorId, { delivery_charge: dc, state: 'CHOOSE_PAYMENT' });
     await sendPaymentButtons(phone, session, dc, vendorId);
     return;
@@ -205,7 +230,6 @@ async function handleButton(replyId, replyTitle, phone, vendorId, profileName = 
     return;
   }
   if (replyId === 'btn_location') {
-    // Fix 2: Direct WhatsApp location picker
     await sendLocationRequest(phone, 'Please share your delivery location by tapping the button below:', vendorId);
     return;
   }
@@ -234,6 +258,7 @@ async function handleButton(replyId, replyTitle, phone, vendorId, profileName = 
 }
 
 async function addToCart(phone, qty, session, vendorId) {
+  const activeVendorId = session.selected_vendor_id || vendorId;
   const pendingId = session.pending_item_id;
   let cart = typeof session.cart === 'string' ? JSON.parse(session.cart) : (session.cart || []);
 
@@ -253,7 +278,7 @@ async function addToCart(phone, qty, session, vendorId) {
     return;
   }
 
-  const [items] = await db.query('SELECT * FROM menu_items WHERE id = ? AND vendor_id = ?', [pendingId, vendorId]);
+  const [items] = await db.query('SELECT * FROM menu_items WHERE id = ? AND vendor_id = ?', [pendingId, activeVendorId]);
   if (!items.length) return;
   const item = items[0];
 
@@ -347,12 +372,13 @@ async function sendAddressOptions(phone, vendorId, savedAddress = null) {
 }
 
 async function sendPaymentButtons(phone, session, deliveryCharge, vendorId) {
+  const activeVendorId = session.selected_vendor_id || vendorId;
   const cart = typeof session.cart === 'string' ? JSON.parse(session.cart) : (session.cart || []);
   const discount = parseFloat(session.pending_discount) || 0;
-  const breakdown = await orderBreakdown(cart, discount, deliveryCharge, vendorId, session.pending_coupon);
-  const eta = await getSetting('estimated_time', vendorId);
-  const codEnabled = await getSetting('cod_enabled', vendorId);
-  const onlineEnabled = await getSetting('online_payment_enabled', vendorId);
+  const breakdown = await orderBreakdown(cart, discount, deliveryCharge, activeVendorId, session.pending_coupon);
+  const eta = await getSetting('estimated_time', activeVendorId);
+  const codEnabled = await getSetting('cod_enabled', activeVendorId);
+  const onlineEnabled = await getSetting('online_payment_enabled', activeVendorId);
 
   const body =
     `🛒 *Order Summary*\n${cartSummary(cart)}\n\n` +
@@ -369,4 +395,79 @@ async function sendPaymentButtons(phone, session, deliveryCharge, vendorId) {
   await sendButtonMessage(phone, body, buttons, vendorId);
 }
 
-module.exports = { handleButton, addToCart, sendCategoryMenu, sendCartSummaryButtons };
+async function sendCityList(phone, vendorId) {
+  const [rows] = await db.query(
+    `SELECT DISTINCT s.setting_value AS city
+     FROM settings s
+     JOIN vendors v ON v.id = s.vendor_id
+     WHERE s.setting_key = 'restaurant_city'
+       AND v.is_active = 1
+       AND s.setting_value IS NOT NULL
+       AND s.setting_value != ''`
+  );
+
+  if (!rows.length) {
+    await sendWhatsApp(phone, '❌ Currently, there are no active restaurants on the platform.', vendorId);
+    return;
+  }
+
+  const cities = rows.map(r => r.city.trim()).filter((v, i, a) => a.indexOf(v) === i);
+  const listRows = cities.slice(0, 10).map(city => ({
+    id: `city_${city}`,
+    title: city,
+    description: `View restaurants in ${city}`
+  }));
+
+  await sendListMessage(
+    phone,
+    '📍 Select City',
+    'Choose your city to view nearby restaurants:',
+    'Cities',
+    '📍 Select City',
+    [{ title: 'Available Cities', rows: listRows }],
+    vendorId
+  );
+}
+
+async function sendRestaurantList(phone, city, vendorId) {
+  const [restaurants] = await db.query(
+    `SELECT v.id, v.name, 
+       (SELECT setting_value FROM settings WHERE vendor_id = v.id AND setting_key = 'restaurant_tagline') as tagline
+     FROM vendors v
+     JOIN settings s ON s.vendor_id = v.id
+     WHERE s.setting_key = 'restaurant_city'
+       AND s.setting_value = ?
+       AND v.is_active = 1`,
+    [city]
+  );
+
+  if (!restaurants.length) {
+    await sendWhatsApp(phone, `❌ No active restaurants found in ${city}.`, vendorId);
+    return;
+  }
+
+  const listRows = restaurants.slice(0, 10).map(r => ({
+    id: `rest_${r.id}`,
+    title: r.name,
+    description: r.tagline || 'Delicious food delivery'
+  }));
+
+  await sendListMessage(
+    phone,
+    `🏪 Restaurants in ${city}`,
+    'Select a restaurant to order from:',
+    'Restaurants',
+    '🏪 Select Restaurant',
+    [{ title: `Restaurants in ${city}`, rows: listRows }],
+    vendorId
+  );
+}
+
+module.exports = { 
+  handleButton, 
+  addToCart, 
+  sendCategoryMenu, 
+  sendCartSummaryButtons,
+  sendCityList,
+  sendRestaurantList
+};

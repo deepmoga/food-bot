@@ -39,6 +39,7 @@ ${locals.query && locals.query.saved ? '<div class="alert alert-success">✅ Set
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div class="form-group"><label>Restaurant Name</label><input name="restaurant_name" class="form-control" value="${s('restaurant_name')}"></div>
       <div class="form-group"><label>WhatsApp Number (with country code)</label><input name="restaurant_phone" class="form-control" value="${s('restaurant_phone')}" placeholder="919876543210"></div>
+      <div class="form-group" style="grid-column:1/-1"><label>City</label><input name="restaurant_city" class="form-control" value="${s('restaurant_city')}" placeholder="e.g. Ludhiana"></div>
       <div class="form-group" style="grid-column:1/-1"><label>Address</label><input name="restaurant_address" class="form-control" value="${s('restaurant_address')}"></div>
       <div class="form-group">
         <label>Restaurant Latitude <span style="font-size:11px;color:#6b7280">(Google Maps se lo)</span></label>
