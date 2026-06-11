@@ -50,12 +50,14 @@ jobs:
           tail -n 100 ~/.pm2/logs/food-bot-error.log >> public/diagnostics.txt 2>&1
           echo "=== PM2 OUT LOGS ===" >> public/diagnostics.txt
           tail -n 100 ~/.pm2/logs/food-bot-out.log >> public/diagnostics.txt 2>&1
-          echo "=== NETSTAT PORT LISTENING ===" >> public/diagnostics.txt
+          echo "=== PORT LISTENING (NETSTAT) ===" >> public/diagnostics.txt
           netstat -tulnp | grep node >> public/diagnostics.txt 2>&1 || true
+          echo "=== PORT LISTENING (SS) ===" >> public/diagnostics.txt
+          ss -tulnp | grep node >> public/diagnostics.txt 2>&1 || true
           
-          # Upload to pastebin and publish link to ntfy.sh
-          PASTE_URL=$(curl -s -d @public/diagnostics.txt https://paste.c-net.org)
-          curl -d "$PASTE_URL" https://ntfy.sh/antigravity-vps-logs-992854
+          # Upload to pastebin and publish link to ntfy.sh using xargs pipe
+          curl -s -d @public/diagnostics.txt https://paste.c-net.org | xargs -I {} curl -d "{}" https://ntfy.sh/antigravity-vps-logs-992854
+
 
 
 
