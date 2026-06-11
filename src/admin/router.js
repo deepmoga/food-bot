@@ -117,7 +117,7 @@ router.post('/api/update-status', async (req, res) => {
     [vendorId, status]
   );
   if (msgRows.length) {
-    const items = JSON.parse(order.items);
+    const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
     const itemsText = items.map(i => `• ${i.name} x${i.qty}`).join('\n');
     const reviewLink = (await db.query("SELECT setting_value FROM settings WHERE vendor_id=? AND setting_key='google_review_link'", [vendorId]))[0][0]?.setting_value || '';
     const eta = (await db.query("SELECT setting_value FROM settings WHERE vendor_id=? AND setting_key='estimated_time'", [vendorId]))[0][0]?.setting_value || '30-45';

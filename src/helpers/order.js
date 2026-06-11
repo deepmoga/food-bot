@@ -61,8 +61,8 @@ async function notifyRestaurant(order, vendorId) {
   const name = await getSetting('restaurant_name', vendorId);
   if (!phone) return;
 
-  const items = JSON.parse(order.items || order.items);
-  const summary = cartSummary(typeof items === 'string' ? JSON.parse(items) : items);
+  const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
+  const summary = cartSummary(items);
   const mapsLink = order.customer_lat
     ? `\n🗺️ https://maps.google.com/?q=${order.customer_lat},${order.customer_lng}`
     : '';
