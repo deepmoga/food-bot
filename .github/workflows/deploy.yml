@@ -39,4 +39,18 @@ jobs:
           
           # Save PM2 state
           pm2 save
+          
+          # Run diagnostics and output to public/diagnostics.txt
+          echo "=== DIAGNOSTICS RUN AT $(date) ===" > public/diagnostics.txt
+          echo "=== PM2 LIST ===" >> public/diagnostics.txt
+          pm2 list >> public/diagnostics.txt
+          echo "=== PM2 SHOW food-bot ===" >> public/diagnostics.txt
+          pm2 show food-bot >> public/diagnostics.txt
+          echo "=== PM2 ERROR LOGS ===" >> public/diagnostics.txt
+          tail -n 100 ~/.pm2/logs/food-bot-error.log >> public/diagnostics.txt 2>&1
+          echo "=== PM2 OUT LOGS ===" >> public/diagnostics.txt
+          tail -n 100 ~/.pm2/logs/food-bot-out.log >> public/diagnostics.txt 2>&1
+          echo "=== NETSTAT PORT LISTENING ===" >> public/diagnostics.txt
+          netstat -tulnp | grep node >> public/diagnostics.txt 2>&1 || true
+
 
