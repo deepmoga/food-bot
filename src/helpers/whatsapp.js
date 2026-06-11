@@ -25,6 +25,23 @@ async function getWAConfig(vendorId) {
   return { token, phoneId };
 }
 
+// For customers who came in via the shared platform directory number, replies must
+// keep using that same number (their conversation window is with it, not the
+// selected restaurant's own WhatsApp number). Used for messages sent outside the
+// live webhook flow (admin/kitchen status updates, payment confirmations, etc.)
+// where vendorId is the order's own vendor, not the inbound number.
+async function getCustomerMessagingVendorId(phone, vendorId) {
+  const platformVendorIdStr = await getPlatformSetting('platform_vendor_id');
+  const platformVendorId = platformVendorIdStr ? parseInt(platformVendorIdStr) : null;
+  if (!platformVendorId || vendorId === platformVendorId) return vendorId;
+
+  const [rows] = await db.query(
+    'SELECT 1 FROM sessions WHERE phone = ? AND vendor_id = ? AND selected_vendor_id = ?',
+    [phone, platformVendorId, vendorId]
+  );
+  return rows.length ? platformVendorId : vendorId;
+}
+
 async function sendWhatsApp(to, text, vendorId) {
   const { token, phoneId } = await getWAConfig(vendorId);
   try {
@@ -122,4 +139,4 @@ async function logMessage(phone, direction, message, vendorId) {
   } catch (_) {}
 }
 
-module.exports = { sendWhatsApp, sendButtonMessage, sendListMessage, sendLocationRequest, logMessage };
+module.exports = { sendWhatsApp, sendButtonMessage, sendListMessage, sendLocationRequest, logMessage, getCustomerMessagingVendorId };

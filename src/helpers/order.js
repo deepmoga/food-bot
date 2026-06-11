@@ -1,6 +1,6 @@
 const db = require('../config/db');
 const { getSetting } = require('./settings');
-const { sendWhatsApp } = require('./whatsapp');
+const { sendWhatsApp, getCustomerMessagingVendorId } = require('./whatsapp');
 const { cartTotal } = require('./gst');
 const { createBillToken, getBillUrl } = require('./payment');
 
@@ -96,7 +96,8 @@ async function sendReviewRequests() {
     const msg =
       `Hi ${order.customer_name || 'there'}! 🙏 Thank you for your order *#${order.order_number}*.\n\n` +
       `We'd love to hear your feedback! Please take a moment to rate us:\n${order.review_link}`;
-    await sendWhatsApp(order.phone, msg, order.vendor_id);
+    const msgVendorId = await getCustomerMessagingVendorId(order.phone, order.vendor_id);
+    await sendWhatsApp(order.phone, msg, msgVendorId);
     await db.query('UPDATE orders SET review_sent = 1 WHERE id = ?', [order.id]);
   }
 }

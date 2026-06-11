@@ -3,7 +3,7 @@ const router = express.Router();
 const crypto = require('crypto');
 const db = require('../config/db');
 const { getSetting } = require('../helpers/settings');
-const { sendWhatsApp } = require('../helpers/whatsapp');
+const { sendWhatsApp, getCustomerMessagingVendorId } = require('../helpers/whatsapp');
 const { getBillUrl } = require('../helpers/payment');
 const { notifyRestaurant } = require('../helpers/order');
 const { isFeatureEnabled } = require('../helpers/store');
@@ -44,7 +44,8 @@ router.post('/', async (req, res) => {
     if (billEnabled && order.bill_token) {
       const billUrl = await getBillUrl(order.bill_token, vendorId);
       const msg = `✅ *Payment Received!*\n\nOrder *#${order.order_number}* confirmed.\n\n🧾 View your bill: ${billUrl}\n\nThank you for ordering! 🙏`;
-      await sendWhatsApp(order.phone, msg, vendorId);
+      const msgVendorId = await getCustomerMessagingVendorId(order.phone, vendorId);
+      await sendWhatsApp(order.phone, msg, msgVendorId);
     }
 
     // Notify restaurant

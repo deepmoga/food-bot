@@ -4,7 +4,7 @@ const bcrypt = require('bcrypt');
 const db = require('../config/db');
 const { requireAuth } = require('./middleware/auth');
 const { isFeatureEnabled } = require('../helpers/store');
-const { sendWhatsApp } = require('../helpers/whatsapp');
+const { sendWhatsApp, getCustomerMessagingVendorId } = require('../helpers/whatsapp');
 const { sendDeliveryAssignment } = require('../helpers/delivery');
 const { cartTotal } = require('../helpers/gst');
 const { saveSetting, getSettings } = require('../helpers/settings');
@@ -111,6 +111,8 @@ router.post('/api/update-status', async (req, res) => {
 
   await db.query('UPDATE orders SET order_status = ? WHERE id = ?', [status, order_id]);
 
+  const msgVendorId = await getCustomerMessagingVendorId(order.phone, vendorId);
+
   // Send WhatsApp template
   const [msgRows] = await db.query(
     'SELECT message FROM status_messages WHERE vendor_id = ? AND status = ? AND is_active = 1',
@@ -131,7 +133,7 @@ router.post('/api/update-status', async (req, res) => {
       .replace(/{review_link}/g, reviewLink)
       .replace(/{restaurant_name}/g, restName)
       .replace(/{delivery_or_pickup}/g, order.delivery_address ? `📍 ${order.delivery_address}` : '🏃 Pickup');
-    await sendWhatsApp(order.phone, msg, vendorId);
+    await sendWhatsApp(order.phone, msg, msgVendorId);
   }
 
   // Bill send on 'delivered' status
@@ -147,7 +149,7 @@ router.post('/api/update-status', async (req, res) => {
         `🧾 *Your Bill:* ${billUrl}` +
         (reviewLink ? `\n\n⭐ *Rate us:* ${reviewLink}` : '') +
         `\n\nThank you for ordering! 🙏`;
-      await sendWhatsApp(order.phone, billMsg, vendorId);
+      await sendWhatsApp(order.phone, billMsg, msgVendorId);
     }
     await db.query("UPDATE orders SET review_sent=1 WHERE id=?", [order_id]);
   }

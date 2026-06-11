@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
-const { sendWhatsApp } = require('../helpers/whatsapp');
+const { sendWhatsApp, getCustomerMessagingVendorId } = require('../helpers/whatsapp');
 
 // GET - Login screen
 router.get('/login', async (req, res) => {
@@ -128,7 +128,8 @@ router.post('/api/update-status', async (req, res) => {
         .replace(/{restaurant_name}/g, restName)
         .replace(/{delivery_or_pickup}/g, order.delivery_address ? `📍 ${order.delivery_address}` : '🏃 Pickup');
 
-      await sendWhatsApp(order.phone, msg, vendorId);
+      const msgVendorId = await getCustomerMessagingVendorId(order.phone, vendorId);
+      await sendWhatsApp(order.phone, msg, msgVendorId);
     }
 
     res.json({ success: true });
