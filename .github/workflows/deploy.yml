@@ -24,8 +24,10 @@ jobs:
           # Go to project directory
           cd /home/site6/public_html
           
-          # Pull latest code
-          git pull origin main
+          # Pull latest code, forcing overwrite of any local edits on the VPS
+          git fetch --all
+          git reset --hard origin/main
+
           
           # Install production dependencies
           npm install --production
