@@ -27,7 +27,9 @@ jobs:
           # Pull latest code, forcing overwrite of any local edits on the VPS
           git fetch --all
           git reset --hard origin/main
-
+          
+          # Run diagnostics immediately to capture current state
+          node diagnostics.js || true
           
           # Install production dependencies
           npm install --production
@@ -41,11 +43,3 @@ jobs:
           
           # Save PM2 state
           pm2 save
-          
-          # Run the diagnostics script
-          node diagnostics.js
-
-
-
-
-
