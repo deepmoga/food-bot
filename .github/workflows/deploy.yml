@@ -24,22 +24,11 @@ jobs:
           # Go to project directory
           cd /home/site6/public_html
           
-          # Pull latest code, forcing overwrite of any local edits on the VPS
-          git fetch --all
-          git reset --hard origin/main
-          
-          # Run diagnostics immediately to capture current state
-          node diagnostics.js || true
+          # Pull latest code
+          git pull origin main
           
           # Install production dependencies
           npm install --production
           
-          # Delete old processes if they exist to clear bad path/name registration
-          pm2 delete food-bot || true
-          pm2 delete foodbot || true
-          
-          # Start the process fresh with the correct path and name
-          pm2 start index.js --name food-bot
-          
-          # Save PM2 state
-          pm2 save
+          # Restart application using PM2
+          pm2 restart food-bot

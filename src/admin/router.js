@@ -215,7 +215,7 @@ router.post('/api/edit-order', async (req, res) => {
   const [orders] = await db.query('SELECT * FROM orders WHERE id=? AND vendor_id=?', [order_id, vendorId]);
   if (!orders.length) return res.json({ success: false });
   const o = orders[0];
-  const total = subtotal - o.discount_amount + o.delivery_charge + o.gst_amount;
+  const total = subtotal - parseFloat(o.discount_amount) + parseFloat(o.delivery_charge) + parseFloat(o.gst_amount);
   await db.query('UPDATE orders SET items=?, subtotal=?, total=? WHERE id=?', [items, subtotal, total, order_id]);
   res.json({ success: true, total });
 });

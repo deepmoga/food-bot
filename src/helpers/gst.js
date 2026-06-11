@@ -13,7 +13,8 @@ async function calculateGST(subtotal, vendorId) {
 
 async function orderBreakdown(cart, discount, deliveryCharge, vendorId, pendingCoupon = null) {
   const subtotal = cartTotal(cart);
-  let finalDiscount = discount;
+  deliveryCharge = parseFloat(deliveryCharge) || 0;
+  let finalDiscount = parseFloat(discount) || 0;
   if (!pendingCoupon) {
     const { getAutomaticDiscount } = require('./discount');
     finalDiscount = await getAutomaticDiscount(subtotal, vendorId);
