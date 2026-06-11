@@ -135,7 +135,8 @@ router.post('/', async (req, res) => {
       const { open } = await isStoreOpen(activeVendorId);
       if (!open) {
         const closedMsg = await getClosedMessage(activeVendorId);
-        await require('../helpers/whatsapp').sendWhatsApp(phone, closedMsg, activeVendorId);
+        // Reply via the inbound (e.g. shared platform) number, not the selected vendor's own number
+        await require('../helpers/whatsapp').sendWhatsApp(phone, closedMsg, vendorId);
         return;
       }
     }

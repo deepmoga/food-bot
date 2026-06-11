@@ -47,7 +47,9 @@ app.get('/test/menu-debug', async (req, res) => {
     const vendorId = parseInt(req.query.vendor_id);
     const [cats] = await db.query('SELECT id, name, is_active, sort_order FROM categories WHERE vendor_id = ?', [vendorId]);
     const [items] = await db.query('SELECT id, category_id, name, price, is_available FROM menu_items WHERE vendor_id = ?', [vendorId]);
-    res.json({ vendorId, cats, items });
+    const [settings] = await db.query("SELECT setting_key, setting_value FROM settings WHERE vendor_id = ? AND setting_key IN ('store_open','store_closed_msg')", [vendorId]);
+    const [features] = await db.query("SELECT feature_key, is_enabled FROM vendor_features WHERE vendor_id = ? AND feature_key='store_schedule'", [vendorId]);
+    res.json({ vendorId, cats, items, settings, features });
   } catch (e) {
     res.json({ error: e.message });
   }
