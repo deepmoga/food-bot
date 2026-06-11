@@ -41,31 +41,6 @@ app.get('/test/last-messages', async (req, res) => {
   }
 });
 
-// ===== TEMP DEBUG ENDPOINT — remove after diagnosing category-select bug =====
-app.get('/test/menu-debug', async (req, res) => {
-  try {
-    const vendorId = parseInt(req.query.vendor_id);
-    const [cats] = await db.query('SELECT id, name, is_active, sort_order FROM categories WHERE vendor_id = ?', [vendorId]);
-    const [items] = await db.query('SELECT id, category_id, name, price, is_available FROM menu_items WHERE vendor_id = ?', [vendorId]);
-    const [settings] = await db.query("SELECT setting_key, setting_value FROM settings WHERE vendor_id = ? AND setting_key IN ('store_open','store_closed_msg')", [vendorId]);
-    const [features] = await db.query("SELECT feature_key, is_enabled FROM vendor_features WHERE vendor_id = ? AND feature_key='store_schedule'", [vendorId]);
-    res.json({ vendorId, cats, items, settings, features });
-  } catch (e) {
-    res.json({ error: e.message });
-  }
-});
-
-app.get('/test/simulate-button', async (req, res) => {
-  try {
-    const { handleButton } = require('./src/webhook/handlers/buttons');
-    const { replyId, replyTitle, phone, vendorId } = req.query;
-    await handleButton(replyId, replyTitle || '', phone, parseInt(vendorId));
-    res.json({ ok: true });
-  } catch (e) {
-    res.json({ ok: false, error: e.message, stack: e.stack });
-  }
-});
-
 // Routes
 app.use('/webhook', require('./src/webhook/index'));
 app.use('/admin', require('./src/admin/router'));
