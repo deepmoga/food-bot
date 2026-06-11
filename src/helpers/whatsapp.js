@@ -122,4 +122,4 @@ async function logMessage(phone, direction, message, vendorId) {
   } catch (_) {}
 }
 
-module.exports = { sendWhatsApp, sendButtonMessage, sendListMessage, sendLocationRequest, logMessage, getWAConfig };
+module.exports = { sendWhatsApp, sendButtonMessage, sendListMessage, sendLocationRequest, logMessage };

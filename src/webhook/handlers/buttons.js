@@ -57,8 +57,9 @@ async function handleButton(replyId, replyTitle, phone, vendorId, profileName = 
       return;
     }
     await updateSession(phone, vendorId, { selected_vendor_id: restId, state: 'CATEGORY_SELECT' });
-    await sendWhatsApp(phone, `Welcome to *${vendor.name}*! 🏪`, restId);
-    await sendCategoryMenu(phone, restId);
+    // Keep messaging on the inbound (e.g. shared platform) number — only DB lookups use restId
+    await sendWhatsApp(phone, `Welcome to *${vendor.name}*! 🏪`, vendorId);
+    await sendCategoryMenu(phone, vendorId);
     return;
   }
 

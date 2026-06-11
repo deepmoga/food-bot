@@ -41,32 +41,6 @@ app.get('/test/last-messages', async (req, res) => {
   }
 });
 
-// ===== TEMP DEBUG ENDPOINT — remove after diagnosing directory-mode bug =====
-app.get('/test/wa-debug', async (req, res) => {
-  try {
-    const { getWAConfig } = require('./src/helpers/whatsapp');
-    const vendorId = parseInt(req.query.vendor_id);
-    const cfg = await getWAConfig(vendorId);
-    const [vendorRows] = await db.query(
-      "SELECT setting_key, setting_value FROM settings WHERE vendor_id = ? AND setting_key IN ('whatsapp_phone_id','whatsapp_token')",
-      [vendorId]
-    );
-    res.json({
-      vendorId,
-      resolvedPhoneId: cfg.phoneId,
-      resolvedTokenLen: cfg.token ? cfg.token.length : 0,
-      ownSettings: vendorRows.map(r => ({
-        key: r.setting_key,
-        value: r.setting_key === 'whatsapp_token'
-          ? (r.setting_value ? `[set, len=${r.setting_value.length}]` : '[empty]')
-          : r.setting_value
-      }))
-    });
-  } catch (e) {
-    res.json({ error: e.message });
-  }
-});
-
 // Routes
 app.use('/webhook', require('./src/webhook/index'));
 app.use('/admin', require('./src/admin/router'));
