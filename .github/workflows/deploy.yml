@@ -30,5 +30,13 @@ jobs:
           # Install production dependencies
           npm install --production
           
-          # Restart application using PM2
-          pm2 restart food-bot
+          # Delete old processes if they exist to clear bad path/name registration
+          pm2 delete food-bot || true
+          pm2 delete foodbot || true
+          
+          # Start the process fresh with the correct path and name
+          pm2 start index.js --name food-bot
+          
+          # Save PM2 state
+          pm2 save
+
