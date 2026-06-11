@@ -49,7 +49,30 @@ router.post('/', async (req, res) => {
       isDirectoryMode = true;
       vendorId = platformVendorId;
       if (!vendorId) {
-        console.error('[Webhook] Platform vendor ID not configured in platform_settings');
+        // Self-healing: try to find or create the platform vendor
+        const [[pVendor]] = await db.query('SELECT id FROM vendors WHERE email = ?', ['platform@directory.system']);
+        if (pVendor) {
+          vendorId = pVendor.id;
+          await db.query(
+            'INSERT INTO platform_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?',
+            ['platform_vendor_id', String(vendorId), String(vendorId)]
+          );
+        } else {
+          const bcrypt = require('bcrypt');
+          const hashed = await bcrypt.hash('PLATFORM_DUMMY_PASSWORD', 10);
+          const [result] = await db.query(
+            'INSERT INTO vendors (name, email, password, is_active) VALUES (?, ?, ?, 1)',
+            ['Platform Directory', 'platform@directory.system', hashed]
+          );
+          vendorId = result.insertId;
+          await db.query(
+            'INSERT INTO platform_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?',
+            ['platform_vendor_id', String(vendorId), String(vendorId)]
+          );
+        }
+      }
+      if (!vendorId) {
+        console.error('[Webhook] Platform vendor ID not configured in platform_settings and self-healing failed');
         return;
       }
     } else {
