@@ -30,5 +30,6 @@ jobs:
           # Install production dependencies
           npm install --production
 
-          # Restart application using PM2
-          pm2 restart foodbot
+          # Restart application using PM2 (start it if it isn't registered)
+          pm2 restart foodbot || pm2 start index.js --name foodbot
+          pm2 save
