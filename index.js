@@ -53,6 +53,17 @@ app.get('/test/menu-debug', async (req, res) => {
   }
 });
 
+app.get('/test/simulate-button', async (req, res) => {
+  try {
+    const { handleButton } = require('./src/webhook/handlers/buttons');
+    const { replyId, replyTitle, phone, vendorId } = req.query;
+    await handleButton(replyId, replyTitle || '', phone, parseInt(vendorId));
+    res.json({ ok: true });
+  } catch (e) {
+    res.json({ ok: false, error: e.message, stack: e.stack });
+  }
+});
+
 // Routes
 app.use('/webhook', require('./src/webhook/index'));
 app.use('/admin', require('./src/admin/router'));
