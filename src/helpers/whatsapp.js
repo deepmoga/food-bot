@@ -15,12 +15,13 @@ async function getWAConfig(vendorId) {
     return { token: platformToken, phoneId: platformSharedPhoneId };
   }
 
-  const [vendorToken, phoneId] = await Promise.all([
+  const [vendorToken, vendorPhoneId] = await Promise.all([
     getSetting('whatsapp_token', vendorId),
     getSetting('whatsapp_phone_id', vendorId)
   ]);
-  // Use vendor's own token if set, otherwise fall back to platform token
+  // Use vendor's own token/phone ID if set, otherwise fall back to platform-level values
   const token = (vendorToken && vendorToken.trim()) ? vendorToken.trim() : platformToken;
+  const phoneId = (vendorPhoneId && vendorPhoneId.trim()) ? vendorPhoneId.trim() : platformSharedPhoneId;
   return { token, phoneId };
 }
 
