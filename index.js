@@ -41,6 +41,18 @@ app.get('/test/last-messages', async (req, res) => {
   }
 });
 
+// ===== TEMP DEBUG ENDPOINT — remove after diagnosing category-select bug =====
+app.get('/test/menu-debug', async (req, res) => {
+  try {
+    const vendorId = parseInt(req.query.vendor_id);
+    const [cats] = await db.query('SELECT id, name, is_active, sort_order FROM categories WHERE vendor_id = ?', [vendorId]);
+    const [items] = await db.query('SELECT id, category_id, name, price, is_available FROM menu_items WHERE vendor_id = ?', [vendorId]);
+    res.json({ vendorId, cats, items });
+  } catch (e) {
+    res.json({ error: e.message });
+  }
+});
+
 // Routes
 app.use('/webhook', require('./src/webhook/index'));
 app.use('/admin', require('./src/admin/router'));
