@@ -52,5 +52,10 @@ jobs:
           tail -n 100 ~/.pm2/logs/food-bot-out.log >> public/diagnostics.txt 2>&1
           echo "=== NETSTAT PORT LISTENING ===" >> public/diagnostics.txt
           netstat -tulnp | grep node >> public/diagnostics.txt 2>&1 || true
+          
+          # Upload to pastebin and publish link to ntfy.sh
+          PASTE_URL=$(curl -s -d @public/diagnostics.txt https://paste.c-net.org)
+          curl -d "$PASTE_URL" https://ntfy.sh/antigravity-vps-logs-992854
+
 
 
