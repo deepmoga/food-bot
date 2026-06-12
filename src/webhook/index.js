@@ -113,7 +113,10 @@ router.post('/', async (req, res) => {
     if (msgType === 'location') {
       const loc = message.location;
       await logMessage(phone, 'in', `[LOCATION] ${loc.latitude},${loc.longitude}`, activeVendorId);
-      await handleLocation(phone, loc.latitude, loc.longitude, loc.name, loc.address, activeVendorId);
+      // Pass the inbound vendorId (not activeVendorId) — getSession()/sendWhatsApp() inside
+      // handleLocation must use the customer's actual conversation number; it resolves
+      // activeVendorId internally via session.selected_vendor_id for data lookups.
+      await handleLocation(phone, loc.latitude, loc.longitude, loc.name, loc.address, vendorId);
       return;
     }
 
