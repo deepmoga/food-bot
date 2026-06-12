@@ -462,15 +462,36 @@ router.get('/wallet', async (req, res) => {
     params
   );
   const [[totals]] = await db.query(
-    `SELECT
-       SUM(amount) as total_amount,
-       SUM(CASE WHEN settlement_status='pending' THEN amount ELSE 0 END) as pending_amount,
-       SUM(CASE WHEN settlement_status='settled' THEN amount ELSE 0 END) as settled_amount
-     FROM vendor_wallet_transactions WHERE ${where}`,
+    `SELECT SUM(amount) as total_amount FROM vendor_wallet_transactions WHERE ${where}`,
     params
   );
 
-  res.render('admin/views/wallet', { rows, totals, features, query: req.query });
+  // Payouts (settlements) — ledger-based, replaces per-order settled/pending toggling
+  let settWhere = 'vendor_id = ?';
+  const settParams = [vendorId];
+  if (from) { settWhere += ' AND DATE(created_at) >= ?'; settParams.push(from); }
+  if (to) { settWhere += ' AND DATE(created_at) <= ?'; settParams.push(to); }
+
+  const [settlements] = await db.query(
+    `SELECT * FROM vendor_wallet_settlements WHERE ${settWhere} ORDER BY id DESC LIMIT 200`,
+    settParams
+  );
+  const [[settTotals]] = await db.query(
+    `SELECT SUM(amount) as total_settled FROM vendor_wallet_settlements WHERE ${settWhere}`,
+    settParams
+  );
+
+  const totalAmount = Number(totals.total_amount || 0);
+  const totalSettled = Number(settTotals.total_settled || 0);
+  const pendingAmount = totalAmount - totalSettled;
+
+  res.render('admin/views/wallet', {
+    rows,
+    settlements,
+    totals: { total_amount: totalAmount, settled_amount: totalSettled, pending_amount: pendingAmount },
+    features,
+    query: req.query
+  });
 });
 
 // --- STORE HOURS ---

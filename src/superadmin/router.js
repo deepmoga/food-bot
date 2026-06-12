@@ -211,13 +211,14 @@ router.post('/settings', async (req, res) => {
 // VENDOR WALLET (platform-gateway online payments)
 // ============================================================
 
-// List wallet transactions across all vendors, with vendor/status/date filters
+// List wallet transactions across all vendors, with vendor/date filters.
+// Pending due is computed as a ledger: total online payments received minus
+// total lump-sum settlements paid out — no per-order settling needed.
 router.get('/wallet', async (req, res) => {
-  const { vendor_id, status, from, to } = req.query;
+  const { vendor_id, from, to } = req.query;
   let where = '1=1';
   const params = [];
   if (vendor_id) { where += ' AND w.vendor_id = ?'; params.push(vendor_id); }
-  if (status === 'pending' || status === 'settled') { where += ' AND w.settlement_status = ?'; params.push(status); }
   if (from) { where += ' AND DATE(w.created_at) >= ?'; params.push(from); }
   if (to) { where += ' AND DATE(w.created_at) <= ?'; params.push(to); }
 
@@ -231,41 +232,57 @@ router.get('/wallet', async (req, res) => {
   );
 
   const [[totals]] = await db.query(
-    `SELECT
-       SUM(amount) as total_amount,
-       SUM(CASE WHEN settlement_status='pending' THEN amount ELSE 0 END) as pending_amount,
-       SUM(CASE WHEN settlement_status='settled' THEN amount ELSE 0 END) as settled_amount
-     FROM vendor_wallet_transactions w WHERE ${where}`,
+    `SELECT SUM(amount) as total_amount FROM vendor_wallet_transactions w WHERE ${where}`,
     params
   );
 
+  // Settlement (payout) totals — filtered the same way, but on the settlements table
+  let settWhere = '1=1';
+  const settParams = [];
+  if (vendor_id) { settWhere += ' AND s.vendor_id = ?'; settParams.push(vendor_id); }
+  if (from) { settWhere += ' AND DATE(s.created_at) >= ?'; settParams.push(from); }
+  if (to) { settWhere += ' AND DATE(s.created_at) <= ?'; settParams.push(to); }
+
+  const [[settTotals]] = await db.query(
+    `SELECT SUM(amount) as total_settled FROM vendor_wallet_settlements s WHERE ${settWhere}`,
+    settParams
+  );
+
+  const [settlements] = await db.query(
+    `SELECT s.*, v.name as vendor_name
+     FROM vendor_wallet_settlements s
+     JOIN vendors v ON v.id = s.vendor_id
+     WHERE ${settWhere}
+     ORDER BY s.id DESC LIMIT 200`,
+    settParams
+  );
+
+  const totalAmount = Number(totals.total_amount || 0);
+  const totalSettled = Number(settTotals.total_settled || 0);
+  const pendingAmount = totalAmount - totalSettled;
+
   const [vendors] = await db.query("SELECT id, name FROM vendors WHERE payment_gateway_mode='platform' ORDER BY name");
 
-  res.render('superadmin/views/wallet', { rows, totals, vendors, query: req.query });
+  res.render('superadmin/views/wallet', {
+    rows,
+    settlements,
+    totals: { total_amount: totalAmount, settled_amount: totalSettled, pending_amount: pendingAmount },
+    vendors,
+    query: req.query
+  });
 });
 
-// Mark one transaction settled/pending
-router.post('/wallet/:id/settle', async (req, res) => {
-  const status = req.body.settlement_status === 'pending' ? 'pending' : 'settled';
-  await db.query(
-    `UPDATE vendor_wallet_transactions
-     SET settlement_status=?, settled_at=${status === 'settled' ? 'NOW()' : 'NULL'}
-     WHERE id=?`,
-    [status, req.params.id]
-  );
-  res.redirect('back');
-});
-
-// Bulk-settle all pending transactions for a vendor
-router.post('/wallet/settle-all', async (req, res) => {
-  const { vendor_id } = req.body;
-  if (vendor_id) {
+// Record a custom-amount payout to a vendor (instead of settling per-order)
+router.post('/wallet/settle-payment', async (req, res) => {
+  const { vendor_id, amount, note } = req.body;
+  const amt = parseFloat(amount);
+  if (vendor_id && amt > 0) {
     await db.query(
-      "UPDATE vendor_wallet_transactions SET settlement_status='settled', settled_at=NOW() WHERE vendor_id=? AND settlement_status='pending'",
-      [vendor_id]
+      'INSERT INTO vendor_wallet_settlements (vendor_id, amount, note) VALUES (?,?,?)',
+      [vendor_id, amt, note || null]
     );
   }
-  res.redirect('back');
+  res.redirect(`/superadmin/wallet?vendor_id=${vendor_id}&success=1`);
 });
 
 // ============================================================

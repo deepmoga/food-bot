@@ -421,3 +421,16 @@ CREATE TABLE IF NOT EXISTS vendor_wallet_transactions (
   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
   UNIQUE KEY uniq_wallet_order (order_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- 21. vendor_wallet_settlements  (lump-sum payouts from admin to vendor —
+--     pending due = SUM(vendor_wallet_transactions.amount) - SUM(this table's amount))
+-- ============================================================
+CREATE TABLE IF NOT EXISTS vendor_wallet_settlements (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  vendor_id INT NOT NULL,
+  amount DECIMAL(10,2) NOT NULL,
+  note VARCHAR(255),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (vendor_id) REFERENCES vendors(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

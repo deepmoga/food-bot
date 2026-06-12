@@ -14,12 +14,14 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#f3f4f6;color:#111}
 .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
 .page-header h2{font-size:20px;font-weight:700}
 .card{background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;margin-bottom:20px}
+.card-pad{padding:16px}
 .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px}
 .stat-card{background:#fff;border-radius:12px;border:1px solid #e5e7eb;padding:16px}
 .stat-card .label{font-size:12px;color:#6b7280;font-weight:500;margin-bottom:4px}
 .stat-card .value{font-size:22px;font-weight:700}
+.table-scroll{overflow-x:auto;max-width:100%}
 table{width:100%;border-collapse:collapse;font-size:13px}
-th{text-align:left;padding:10px 16px;background:#f9fafb;border-bottom:2px solid #e5e7eb;font-size:11px;text-transform:uppercase;color:#374151;font-weight:600}
+th{text-align:left;padding:10px 16px;background:#f9fafb;border-bottom:2px solid #e5e7eb;font-size:11px;text-transform:uppercase;color:#374151;font-weight:600;white-space:nowrap}
 td{padding:10px 16px;border-bottom:1px solid #f3f4f6;vertical-align:middle}
 .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
 .settled{background:#d1fae5;color:#065f46}.pending{background:#fff3cd;color:#7d4e00}
@@ -29,6 +31,11 @@ td{padding:10px 16px;border-bottom:1px solid #f3f4f6;vertical-align:middle}
 .filters select,.filters input{padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-family:inherit;font-size:13px}
 .alert{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px}
 .alert-success{background:#d1fae5;color:#065f46}
+.section-title{font-size:14px;font-weight:700;margin-bottom:10px}
+.settle-form{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+.settle-form .form-group{display:flex;flex-direction:column;gap:4px}
+.settle-form label{font-size:12px;font-weight:600;color:#374151}
+.settle-form input{padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-family:inherit;font-size:13px}
 </style>
 </head>
 <body>
@@ -41,45 +48,81 @@ td{padding:10px 16px;border-bottom:1px solid #f3f4f6;vertical-align:middle}
     <h2>💰 Vendor Wallet (Platform Gateway)</h2>
   </div>
 
-  <% if(locals.query && locals.query.success){ %><div class="alert alert-success">✅ Updated!</div><% } %>
+  <% if(locals.query && locals.query.success){ %><div class="alert alert-success">✅ Payment record saved!</div><% } %>
 
   <p style="font-size:12px;color:#6b7280;margin-bottom:16px">
     Yeh wo online payments hain jo vendors ke "FoodBot Gateway" mode customers se collect hue hain —
-    paisa FoodBot ke Razorpay account mein aaya hai, vendor ko settle/payout karna baaki hai.
+    paisa FoodBot ke Razorpay account mein aaya hai. Vendor ko jab bhi payout karo, neeche "Record Payment"
+    form se amount daal do — pending balance khud-ba-khud update ho jayega (order-by-order settle karne ki zaroorat nahi).
   </p>
 
   <div class="stats-grid">
-    <div class="stat-card"><div class="label">Total Received</div><div class="value">₹<%= (totals.total_amount || 0).toLocaleString('en-IN') %></div></div>
-    <div class="stat-card"><div class="label">Pending Settlement</div><div class="value" style="color:#d97706">₹<%= (totals.pending_amount || 0).toLocaleString('en-IN') %></div></div>
-    <div class="stat-card"><div class="label">Settled</div><div class="value" style="color:#16a34a">₹<%= (totals.settled_amount || 0).toLocaleString('en-IN') %></div></div>
+    <div class="stat-card"><div class="label">Total Received</div><div class="value">₹<%= Number(totals.total_amount || 0).toLocaleString('en-IN') %></div></div>
+    <div class="stat-card"><div class="label">Pending Due</div><div class="value" style="color:#d97706">₹<%= Number(totals.pending_amount || 0).toLocaleString('en-IN') %></div></div>
+    <div class="stat-card"><div class="label">Total Paid Out</div><div class="value" style="color:#16a34a">₹<%= Number(totals.settled_amount || 0).toLocaleString('en-IN') %></div></div>
   </div>
 
   <form method="GET" class="filters">
-    <select name="vendor_id">
+    <select name="vendor_id" onchange="this.form.submit()">
       <option value="">All Vendors</option>
       <% vendors.forEach(v => { %>
         <option value="<%= v.id %>" <%= String(query.vendor_id)===String(v.id)?'selected':'' %>><%= v.name %></option>
       <% }) %>
     </select>
-    <select name="status">
-      <option value="">All Status</option>
-      <option value="pending" <%= query.status==='pending'?'selected':'' %>>Pending</option>
-      <option value="settled" <%= query.status==='settled'?'selected':'' %>>Settled</option>
-    </select>
     <input type="date" name="from" value="<%= query.from||'' %>" placeholder="From">
     <input type="date" name="to" value="<%= query.to||'' %>" placeholder="To">
     <button type="submit" class="btn btn-indigo">Filter</button>
-    <% if(query.vendor_id){ %>
-    <form method="POST" action="/superadmin/wallet/settle-all" style="display:inline" onsubmit="return confirm('Mark ALL pending transactions for this vendor as settled?')">
-      <input type="hidden" name="vendor_id" value="<%= query.vendor_id %>">
-      <button type="submit" class="btn btn-green">✅ Settle All Pending (this vendor)</button>
-    </form>
-    <% } %>
   </form>
 
+  <% if(query.vendor_id){ %>
+  <div class="card card-pad">
+    <div class="section-title">💸 Record Payment to Vendor</div>
+    <form method="POST" action="/superadmin/wallet/settle-payment" class="settle-form">
+      <input type="hidden" name="vendor_id" value="<%= query.vendor_id %>">
+      <div class="form-group">
+        <label>Amount (₹)</label>
+        <input type="number" name="amount" step="0.01" min="0.01" required placeholder="e.g. 5000" style="width:160px">
+      </div>
+      <div class="form-group" style="flex:1;min-width:200px">
+        <label>Note (optional)</label>
+        <input type="text" name="note" placeholder="e.g. UPI transfer 12/06, partial payout">
+      </div>
+      <button type="submit" class="btn btn-green">✅ Record Payment</button>
+    </form>
+    <div style="font-size:11px;color:#6b7280;margin-top:8px">
+      Aap koi bhi custom amount daal sakte ho — pura pending due ya partial. Pending Due automatically update ho jayega.
+    </div>
+  </div>
+  <% } %>
+
   <div class="card">
+    <div style="padding:14px 16px 0" class="section-title">📜 Payment History (Payouts to Vendors)</div>
+    <div class="table-scroll">
     <table>
-      <thead><tr><th>ID</th><th>Vendor</th><th>Order #</th><th>Amount</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
+      <thead><tr><th>ID</th><th>Vendor</th><th>Amount</th><th>Note</th><th>Date</th></tr></thead>
+      <tbody>
+      <% settlements.forEach(s => { %>
+        <tr>
+          <td>#<%= s.id %></td>
+          <td><%= s.vendor_name %></td>
+          <td>₹<%= Number(s.amount).toLocaleString('en-IN') %></td>
+          <td style="color:#6b7280"><%= s.note || '—' %></td>
+          <td style="color:#6b7280;font-size:12px"><%= new Date(s.created_at).toLocaleString('en-IN') %></td>
+        </tr>
+      <% }) %>
+      <% if(!settlements.length){ %>
+        <tr><td colspan="5" style="text-align:center;padding:24px;color:#6b7280">No payouts recorded yet.</td></tr>
+      <% } %>
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="padding:14px 16px 0" class="section-title">🧾 Online Order Payments (Received)</div>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>ID</th><th>Vendor</th><th>Order #</th><th>Amount</th><th>Date</th></tr></thead>
       <tbody>
       <% rows.forEach(r => { %>
         <tr>
@@ -87,21 +130,15 @@ td{padding:10px 16px;border-bottom:1px solid #f3f4f6;vertical-align:middle}
           <td><%= r.vendor_name %></td>
           <td><%= r.order_number %></td>
           <td>₹<%= Number(r.amount).toLocaleString('en-IN') %></td>
-          <td><span class="badge <%= r.settlement_status %>"><%= r.settlement_status %></span></td>
           <td style="color:#6b7280;font-size:12px"><%= new Date(r.created_at).toLocaleString('en-IN') %></td>
-          <td>
-            <form method="POST" action="/superadmin/wallet/<%= r.id %>/settle" style="display:inline">
-              <input type="hidden" name="settlement_status" value="<%= r.settlement_status==='pending'?'settled':'pending' %>">
-              <button type="submit" class="btn btn-ghost"><%= r.settlement_status==='pending'?'Mark Settled':'Mark Pending' %></button>
-            </form>
-          </td>
         </tr>
       <% }) %>
       <% if(!rows.length){ %>
-        <tr><td colspan="7" style="text-align:center;padding:32px;color:#6b7280">No transactions yet.</td></tr>
+        <tr><td colspan="5" style="text-align:center;padding:24px;color:#6b7280">No transactions yet.</td></tr>
       <% } %>
       </tbody>
     </table>
+    </div>
   </div>
 </div>
 </body>

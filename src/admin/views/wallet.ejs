@@ -16,8 +16,8 @@ const body = `
 
 <div class="stats-grid">
   <div class="stat-card"><div class="label">Total Online Payments</div><div class="value">₹${Number(totals.total_amount || 0).toLocaleString('en-IN')}</div></div>
-  <div class="stat-card"><div class="label">Pending Settlement</div><div class="value" style="color:#d97706">₹${Number(totals.pending_amount || 0).toLocaleString('en-IN')}</div></div>
-  <div class="stat-card"><div class="label">Settled (Received)</div><div class="value" style="color:#16a34a">₹${Number(totals.settled_amount || 0).toLocaleString('en-IN')}</div></div>
+  <div class="stat-card"><div class="label">Pending Due</div><div class="value" style="color:#d97706">₹${Number(totals.pending_amount || 0).toLocaleString('en-IN')}</div></div>
+  <div class="stat-card"><div class="label">Paid to You</div><div class="value" style="color:#16a34a">₹${Number(totals.settled_amount || 0).toLocaleString('en-IN')}</div></div>
 </div>
 
 <div class="card">
@@ -36,18 +36,35 @@ const body = `
 </div>
 
 <div class="card" style="padding:0">
+  <div style="padding:14px 16px 0;font-weight:700;font-size:14px">💸 Payments Received from FoodBot</div>
   <table>
-    <thead><tr><th>Order #</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+    <thead><tr><th>Amount</th><th>Note</th><th>Date</th></tr></thead>
+    <tbody>
+      ${settlements.map(s => `
+        <tr>
+          <td>₹${Number(s.amount).toLocaleString('en-IN')}</td>
+          <td style="color:#6b7280">${s.note || '—'}</td>
+          <td style="color:#6b7280;font-size:12px">${new Date(s.created_at).toLocaleString('en-IN')}</td>
+        </tr>
+      `).join('')}
+      ${!settlements.length ? '<tr><td colspan="3" style="text-align:center;padding:24px;color:#6b7280">Abhi tak koi payout nahi mila.</td></tr>' : ''}
+    </tbody>
+  </table>
+</div>
+
+<div class="card" style="padding:0">
+  <div style="padding:14px 16px 0;font-weight:700;font-size:14px">🧾 Online Order Payments</div>
+  <table>
+    <thead><tr><th>Order #</th><th>Amount</th><th>Date</th></tr></thead>
     <tbody>
       ${rows.map(r => `
         <tr>
           <td>#${r.order_number}</td>
           <td>₹${Number(r.amount).toLocaleString('en-IN')}</td>
-          <td><span class="badge ${r.settlement_status === 'settled' ? 'badge-delivered' : 'badge-waiting'}">${r.settlement_status === 'settled' ? '✅ Settled' : '⏳ Pending'}</span></td>
           <td style="color:#6b7280;font-size:12px">${new Date(r.created_at).toLocaleString('en-IN')}</td>
         </tr>
       `).join('')}
-      ${!rows.length ? '<tr><td colspan="4" style="text-align:center;padding:32px;color:#6b7280">Abhi tak koi online payment nahi aaya.</td></tr>' : ''}
+      ${!rows.length ? '<tr><td colspan="3" style="text-align:center;padding:32px;color:#6b7280">Abhi tak koi online payment nahi aaya.</td></tr>' : ''}
     </tbody>
   </table>
 </div>
