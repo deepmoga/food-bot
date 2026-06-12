@@ -14,7 +14,8 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#f3f4f6;color:#111}
 .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
 .page-header h2{font-size:20px;font-weight:700}
 .card{background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;margin-bottom:20px}
-table{width:100%;border-collapse:collapse;font-size:13px}
+.table-scroll{overflow-x:auto;max-width:100%}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:1100px}
 th{text-align:left;padding:10px 16px;background:#f9fafb;border-bottom:2px solid #e5e7eb;font-size:11px;text-transform:uppercase;color:#374151;font-weight:600}
 td{padding:10px 16px;border-bottom:1px solid #f3f4f6;vertical-align:middle}
 .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
@@ -50,6 +51,7 @@ input:focus{border-color:#6366f1}
   <% if(error){ %><div class="alert alert-error">❌ <%= error %></div><% } %>
 
   <div class="card">
+    <div class="table-scroll">
     <table>
       <thead><tr><th>ID</th><th>Restaurant Name</th><th>Email</th><th>Status</th><th>Messages</th><th>Plan</th><th>📢 Credits</th><th>💳 Payment Gateway</th><th>Created</th><th>Actions</th></tr></thead>
       <tbody>
@@ -76,7 +78,6 @@ input:focus{border-color:#6366f1}
               <% if(sub.end_date){ %><br><span style="color:#6b7280">till <%= new Date(sub.end_date).toLocaleDateString('en-IN') %></span><% } %>
             <% } else { %><span style="color:#9ca3af">—</span><% } %>
           </td>
-          <td style="color:#6b7280;font-size:12px"><%= new Date(v.created_at).toLocaleDateString('en-IN') %></td>
           <td>
             <span style="font-weight:700;font-size:14px;color:<%= v.broadcast_credits>0?'#1db954':'#9ca3af' %>">
               <%= v.broadcast_credits %>
@@ -110,6 +111,7 @@ input:focus{border-color:#6366f1}
       <% } %>
       </tbody>
     </table>
+    </div>
   </div>
 </div>
 
