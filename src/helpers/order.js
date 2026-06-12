@@ -12,7 +12,12 @@ async function generateOrderNumber(vendorId) {
     [vendorId]
   );
   const seq = String((rows[0].cnt || 0) + 1).padStart(4, '0');
-  return `ORD-${today}-${seq}`;
+  // Include vendorId so order numbers stay globally unique across vendors —
+  // previously two vendors placing their Nth order of the same day produced the
+  // SAME "ORD-YYYYMMDD-NNNN" string, violating orders.order_number's UNIQUE
+  // constraint. That INSERT error threw inside createOrder() (called before any
+  // reply is sent), so the customer got NO reply at all after clicking COD/Pay.
+  return `ORD-${vendorId}-${today}-${seq}`;
 }
 
 async function createOrder(session, cart, breakdown, vendorId, msgVendorId = null) {

@@ -1,6 +1,6 @@
 const { getSession, updateSession } = require('../../helpers/session');
 const { getSetting } = require('../../helpers/settings');
-const { getDistanceKm, calculateDeliveryCharge } = require('../../helpers/geo');
+const { getDistanceKm, calculateDeliveryCharge, reverseGeocode } = require('../../helpers/geo');
 const { cartTotal, orderBreakdown } = require('../../helpers/gst');
 const { cartSummary } = require('../../helpers/order');
 const { sendWhatsApp, sendButtonMessage } = require('../../helpers/whatsapp');
@@ -20,30 +20,40 @@ async function handleLocation(phone, lat, lng, locName, locAddress, vendorId) {
   const radius   = parseFloat(await getSetting('service_radius_km', activeVendorId)) || 5;
   const restName = (await getSetting('restaurant_name', activeVendorId)) || 'We';
 
-  // Restaurant location not set — fallback to text
-  if (!restLat || !restLng) {
-    await sendWhatsApp(phone,
-      'Please enter your delivery address as text.',
-      vendorId);
-    return;
+  // Only enforce the delivery-zone check if the restaurant's own location is configured.
+  // Previously, a missing restaurant_lat/restaurant_lng caused this to bail out with
+  // "Please enter your delivery address as text." while leaving the session in
+  // GET_ADDRESS — so a customer who shared their location again just got the same
+  // message again ("asks for address repeatedly"). Now we accept the shared GPS
+  // location regardless and simply skip the distance check.
+  let dist = null;
+  if (restLat && restLng) {
+    dist = getDistanceKm(restLat, restLng, lat, lng);
+
+    // Outside delivery zone
+    if (dist > radius) {
+      await sendWhatsApp(phone,
+        `Sorry! We are unable to deliver to your location.\n\n` +
+        `*${restName}* delivers within *${radius} km* only.\n` +
+        `Your location is *${dist.toFixed(1)} km* away from us.\n\n` +
+        `Please visit us at our restaurant or choose a closer location.\n\n` +
+        `Thank you for your interest!`,
+        vendorId);
+      return;
+    }
   }
 
-  const dist = getDistanceKm(restLat, restLng, lat, lng);
-
-  // Outside delivery zone
-  if (dist > radius) {
-    await sendWhatsApp(phone,
-      `Sorry! We are unable to deliver to your location.\n\n` +
-      `*${restName}* delivers within *${radius} km* only.\n` +
-      `Your location is *${dist.toFixed(1)} km* away from us.\n\n` +
-      `Please visit us at our restaurant or choose a closer location.\n\n` +
-      `Thank you for your interest!`,
-      vendorId);
-    return;
-  }
-
+  // WhatsApp's "share live location" usually sends only lat/lng with no name/address.
+  // Reverse-geocode to a human-readable address so admin sees a real address instead
+  // of raw coordinates.
   const addressParts = [locName, locAddress].filter(Boolean);
-  const address = addressParts.join(', ') || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  let address = addressParts.join(', ');
+  if (!address) {
+    address = await reverseGeocode(lat, lng);
+  }
+  if (!address) {
+    address = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  }
 
   const cart = typeof session.cart === 'string' ? JSON.parse(session.cart) : (session.cart || []);
   const total = cartTotal(cart);
@@ -56,7 +66,7 @@ async function handleLocation(phone, lat, lng, locName, locAddress, vendorId) {
     temp_address: address,
     temp_lat: lat,
     temp_lng: lng,
-    temp_dist: parseFloat(dist.toFixed(2)),
+    temp_dist: dist !== null ? parseFloat(dist.toFixed(2)) : null,
     delivery_charge: deliveryCharge,
     state: 'CHOOSE_PAYMENT'
   });
@@ -67,7 +77,7 @@ async function handleLocation(phone, lat, lng, locName, locAddress, vendorId) {
 
   const body =
     `Location confirmed!\n${address}\n` +
-    `Distance: ${dist.toFixed(1)} km\n\n` +
+    (dist !== null ? `Distance: ${dist.toFixed(1)} km\n\n` : '\n') +
     `*Order Summary*\n${summary}\n\n` +
     `Subtotal: Rs.${breakdown.subtotal}\n` +
     (breakdown.discount > 0 ? `Discount: -Rs.${breakdown.discount}\n` : '') +
