@@ -104,6 +104,9 @@ select.form-control{cursor:pointer}
     <a href="/admin/broadcast" class="<%= page==='broadcast'?'active':'' %>"><span class="icon">📢</span> Broadcast</a>
     <% } %>
     <a href="/admin/customers" class="<%= page==='customers'?'active':'' %>"><span class="icon">👥</span> Customers</a>
+    <% if(locals.paymentGatewayMode === 'platform'){ %>
+    <a href="/admin/wallet" class="<%= page==='wallet'?'active':'' %>"><span class="icon">💰</span> Wallet</a>
+    <% } %>
     <a href="/admin/settings" class="<%= page==='settings'?'active':'' %>"><span class="icon">⚙️</span> Settings</a>
     <a href="/admin/subscription" class="<%= page==='subscription'?'active':'' %>" style="border-top:1px solid #e5e7eb;margin-top:8px;padding-top:18px"><span class="icon">💬</span> Subscription</a>
   </nav>

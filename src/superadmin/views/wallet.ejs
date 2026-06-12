@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vendor Wallet — Super Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#f3f4f6;color:#111}
+.top{background:#1a1a2e;color:#fff;padding:16px 24px;display:flex;align-items:center;justify-content:space-between}
+.top h1{font-size:18px;font-weight:700}
+.top a{color:#a5b4fc;text-decoration:none;font-size:13px;margin-left:16px}
+.main{padding:24px;max-width:1100px;margin:0 auto}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.page-header h2{font-size:20px;font-weight:700}
+.card{background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;margin-bottom:20px}
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px}
+.stat-card{background:#fff;border-radius:12px;border:1px solid #e5e7eb;padding:16px}
+.stat-card .label{font-size:12px;color:#6b7280;font-weight:500;margin-bottom:4px}
+.stat-card .value{font-size:22px;font-weight:700}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 16px;background:#f9fafb;border-bottom:2px solid #e5e7eb;font-size:11px;text-transform:uppercase;color:#374151;font-weight:600}
+td{padding:10px 16px;border-bottom:1px solid #f3f4f6;vertical-align:middle}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.settled{background:#d1fae5;color:#065f46}.pending{background:#fff3cd;color:#7d4e00}
+.btn{display:inline-flex;align-items:center;padding:6px 12px;border-radius:8px;border:none;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;gap:4px}
+.btn-indigo{background:#6366f1;color:#fff}.btn-ghost{background:#f3f4f6;color:#374151}.btn-green{background:#1db954;color:#fff}
+.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.filters select,.filters input{padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-family:inherit;font-size:13px}
+.alert{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px}
+.alert-success{background:#d1fae5;color:#065f46}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>👑 Super Admin</h1>
+  <div><a href="/superadmin">Dashboard</a><a href="/superadmin/vendors">Vendors</a><a href="/superadmin/wallet">Wallet</a><a href="/superadmin/plans">Plans</a><a href="/superadmin/templates">Templates</a><a href="/superadmin/settings">Settings</a><a href="/superadmin/logout">Logout</a></div>
+</div>
+<div class="main">
+  <div class="page-header">
+    <h2>💰 Vendor Wallet (Platform Gateway)</h2>
+  </div>
+
+  <% if(locals.query && locals.query.success){ %><div class="alert alert-success">✅ Updated!</div><% } %>
+
+  <p style="font-size:12px;color:#6b7280;margin-bottom:16px">
+    Yeh wo online payments hain jo vendors ke "FoodBot Gateway" mode customers se collect hue hain —
+    paisa FoodBot ke Razorpay account mein aaya hai, vendor ko settle/payout karna baaki hai.
+  </p>
+
+  <div class="stats-grid">
+    <div class="stat-card"><div class="label">Total Received</div><div class="value">₹<%= (totals.total_amount || 0).toLocaleString('en-IN') %></div></div>
+    <div class="stat-card"><div class="label">Pending Settlement</div><div class="value" style="color:#d97706">₹<%= (totals.pending_amount || 0).toLocaleString('en-IN') %></div></div>
+    <div class="stat-card"><div class="label">Settled</div><div class="value" style="color:#16a34a">₹<%= (totals.settled_amount || 0).toLocaleString('en-IN') %></div></div>
+  </div>
+
+  <form method="GET" class="filters">
+    <select name="vendor_id">
+      <option value="">All Vendors</option>
+      <% vendors.forEach(v => { %>
+        <option value="<%= v.id %>" <%= String(query.vendor_id)===String(v.id)?'selected':'' %>><%= v.name %></option>
+      <% }) %>
+    </select>
+    <select name="status">
+      <option value="">All Status</option>
+      <option value="pending" <%= query.status==='pending'?'selected':'' %>>Pending</option>
+      <option value="settled" <%= query.status==='settled'?'selected':'' %>>Settled</option>
+    </select>
+    <input type="date" name="from" value="<%= query.from||'' %>" placeholder="From">
+    <input type="date" name="to" value="<%= query.to||'' %>" placeholder="To">
+    <button type="submit" class="btn btn-indigo">Filter</button>
+    <% if(query.vendor_id){ %>
+    <form method="POST" action="/superadmin/wallet/settle-all" style="display:inline" onsubmit="return confirm('Mark ALL pending transactions for this vendor as settled?')">
+      <input type="hidden" name="vendor_id" value="<%= query.vendor_id %>">
+      <button type="submit" class="btn btn-green">✅ Settle All Pending (this vendor)</button>
+    </form>
+    <% } %>
+  </form>
+
+  <div class="card">
+    <table>
+      <thead><tr><th>ID</th><th>Vendor</th><th>Order #</th><th>Amount</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
+      <tbody>
+      <% rows.forEach(r => { %>
+        <tr>
+          <td>#<%= r.id %></td>
+          <td><%= r.vendor_name %></td>
+          <td><%= r.order_number %></td>
+          <td>₹<%= Number(r.amount).toLocaleString('en-IN') %></td>
+          <td><span class="badge <%= r.settlement_status %>"><%= r.settlement_status %></span></td>
+          <td style="color:#6b7280;font-size:12px"><%= new Date(r.created_at).toLocaleString('en-IN') %></td>
+          <td>
+            <form method="POST" action="/superadmin/wallet/<%= r.id %>/settle" style="display:inline">
+              <input type="hidden" name="settlement_status" value="<%= r.settlement_status==='pending'?'settled':'pending' %>">
+              <button type="submit" class="btn btn-ghost"><%= r.settlement_status==='pending'?'Mark Settled':'Mark Pending' %></button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+      <% if(!rows.length){ %>
+        <tr><td colspan="7" style="text-align:center;padding:32px;color:#6b7280">No transactions yet.</td></tr>
+      <% } %>
+      </tbody>
+    </table>
+  </div>
+</div>
+</body>
+</html>

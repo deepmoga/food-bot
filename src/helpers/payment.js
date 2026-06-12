@@ -1,10 +1,27 @@
 const crypto = require('crypto');
+const db = require('../config/db');
 const { getSetting } = require('./settings');
+const { getPlatformSetting } = require('./platformSettings');
+
+// Returns the vendor's payment_gateway_mode: 'platform' (FoodBot's Razorpay account
+// is used for this vendor's online food-order payments) or 'own' (vendor's own
+// Razorpay keys, saved in /admin/settings).
+async function getPaymentGatewayMode(vendorId) {
+  const [[row]] = await db.query('SELECT payment_gateway_mode FROM vendors WHERE id = ?', [vendorId]);
+  return row?.payment_gateway_mode || 'own';
+}
 
 async function getRazorpay(vendorId) {
   const Razorpay = require('razorpay');
-  const keyId = await getSetting('razorpay_key_id', vendorId);
-  const keySecret = await getSetting('razorpay_key_secret', vendorId);
+  const mode = await getPaymentGatewayMode(vendorId);
+  let keyId, keySecret;
+  if (mode === 'platform') {
+    keyId = await getPlatformSetting('platform_razorpay_key_id');
+    keySecret = await getPlatformSetting('platform_razorpay_key_secret');
+  } else {
+    keyId = await getSetting('razorpay_key_id', vendorId);
+    keySecret = await getSetting('razorpay_key_secret', vendorId);
+  }
   return new Razorpay({ key_id: keyId, key_secret: keySecret });
 }
 
@@ -44,4 +61,4 @@ async function getBillUrl(token, vendorId) {
   return `${base}/bill/${token}`;
 }
 
-module.exports = { createPaymentLink, createBillToken, getBillUrl };
+module.exports = { createPaymentLink, createBillToken, getBillUrl, getPaymentGatewayMode };

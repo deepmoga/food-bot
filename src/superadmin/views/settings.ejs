@@ -38,6 +38,7 @@ input:focus,textarea:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102
   <div>
     <a href="/superadmin">Dashboard</a>
     <a href="/superadmin/vendors">Vendors</a>
+    <a href="/superadmin/wallet">Wallet</a>
     <a href="/superadmin/plans">Plans</a>
     <a href="/superadmin/templates">Templates</a>
     <a href="/superadmin/logout">Logout</a>
@@ -86,7 +87,11 @@ input:focus,textarea:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102
     <!-- Razorpay -->
     <div class="card">
       <h3>💳 Razorpay Payment Gateway</h3>
-      <p>Subscription payments ke liye. Vendor jab plan kharidega toh payment tumhare account mein ayegi.</p>
+      <p>
+        Subscription payments ke liye (vendor jab plan kharidega), AUR un vendors ke
+        online food-order payments ke liye jo "FoodBot Gateway" mode pe hain — unka
+        payment bhi isi account mein aayega (Vendors page se per-vendor set kar sakte ho).
+      </p>
 
       <div class="tip">
         <strong>💡 Keys kahan se milenge:</strong>
@@ -103,6 +108,15 @@ input:focus,textarea:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102
         <label>Razorpay Key Secret</label>
         <input type="password" name="platform_razorpay_key_secret" value="<%= rzpKeySecret %>" placeholder="••••••••••••••••••••••••">
         <div class="hint">Secret secure rakho — kisi ko share mat karo</div>
+      </div>
+      <div class="form-group">
+        <label>Razorpay Webhook Secret</label>
+        <input type="password" name="platform_razorpay_webhook_secret" value="<%= rzpWebhookSecret %>" placeholder="••••••••••••••••••••••••">
+        <div class="hint">
+          Razorpay Dashboard → Settings → Webhooks → Add Webhook (URL: <code>https://yourdomain.com/razorpay-webhook</code>,
+          events: payment.captured, payment_link.paid) → wahi secret yaha daalo.
+          "FoodBot Gateway" vendors ke order-payment webhook iss secret se verify honge.
+        </div>
       </div>
     </div>
 
@@ -136,6 +150,11 @@ input:focus,textarea:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102
       <span class="dot <%= rzpKeySecret ? 'dot-green' : 'dot-red' %>"></span>
       Razorpay Secret:
       <strong><%= rzpKeySecret ? '••••••••••••' : 'Not set' %></strong>
+    </div>
+    <div class="status-row">
+      <span class="dot <%= rzpWebhookSecret ? 'dot-green' : 'dot-red' %>"></span>
+      Razorpay Webhook Secret:
+      <strong><%= rzpWebhookSecret ? '••••••••••••' : 'Not set ⚠️' %></strong>
     </div>
 
     <% if(!waToken){ %>

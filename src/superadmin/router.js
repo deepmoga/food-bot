@@ -56,10 +56,11 @@ router.get('/vendors', async (req, res) => {
 
 // CREATE VENDOR
 router.post('/vendors/create', async (req, res) => {
-  const { name, email, password, trial_messages } = req.body;
+  const { name, email, password, trial_messages, payment_gateway_mode } = req.body;
   try {
     const hashed = await bcrypt.hash(password, 10);
-    const [result] = await db.query('INSERT INTO vendors (name, email, password) VALUES (?,?,?)', [name, email, hashed]);
+    const gatewayMode = payment_gateway_mode === 'own' ? 'own' : 'platform';
+    const [result] = await db.query('INSERT INTO vendors (name, email, password, payment_gateway_mode) VALUES (?,?,?,?)', [name, email, hashed, gatewayMode]);
     const vendorId = result.insertId;
     await db.query('CALL setup_vendor_defaults(?)', [vendorId]);
     // Auto-generate unique verify token for this vendor
@@ -88,6 +89,13 @@ router.post('/vendors/create', async (req, res) => {
 router.post('/vendors/:id/toggle', async (req, res) => {
   await db.query('UPDATE vendors SET is_active=NOT is_active WHERE id=?', [req.params.id]);
   res.redirect('/superadmin/vendors');
+});
+
+// CHANGE PAYMENT GATEWAY MODE (platform vs own)
+router.post('/vendors/:id/payment-mode', async (req, res) => {
+  const mode = req.body.payment_gateway_mode === 'own' ? 'own' : 'platform';
+  await db.query('UPDATE vendors SET payment_gateway_mode=? WHERE id=?', [mode, req.params.id]);
+  res.redirect('/superadmin/vendors?success=1');
 });
 
 // DELETE VENDOR
@@ -173,28 +181,91 @@ router.post('/vendors/:id/topup', async (req, res) => {
 // PLATFORM SETTINGS
 router.get('/settings', async (req, res) => {
   const { getPlatformSetting } = require('../helpers/platformSettings');
-  const [rzpKeyId, rzpKeySecret, waToken, wabaId, platformSharedPhoneId] = await Promise.all([
+  const [rzpKeyId, rzpKeySecret, rzpWebhookSecret, waToken, wabaId, platformSharedPhoneId] = await Promise.all([
     getPlatformSetting('platform_razorpay_key_id'),
     getPlatformSetting('platform_razorpay_key_secret'),
+    getPlatformSetting('platform_razorpay_webhook_secret'),
     getPlatformSetting('platform_whatsapp_token'),
     getPlatformSetting('platform_waba_id'),
     getPlatformSetting('platform_shared_phone_id')
   ]);
-  res.render('superadmin/views/settings', { rzpKeyId, rzpKeySecret, waToken, wabaId, platformSharedPhoneId, query: req.query });
+  res.render('superadmin/views/settings', { rzpKeyId, rzpKeySecret, rzpWebhookSecret, waToken, wabaId, platformSharedPhoneId, query: req.query });
 });
 
 router.post('/settings', async (req, res) => {
   const { setPlatformSetting, clearPlatformCache } = require('../helpers/platformSettings');
-  const { platform_razorpay_key_id, platform_razorpay_key_secret, platform_whatsapp_token, platform_waba_id, platform_shared_phone_id } = req.body;
+  const { platform_razorpay_key_id, platform_razorpay_key_secret, platform_razorpay_webhook_secret, platform_whatsapp_token, platform_waba_id, platform_shared_phone_id } = req.body;
   await Promise.all([
     setPlatformSetting('platform_razorpay_key_id', platform_razorpay_key_id || ''),
     setPlatformSetting('platform_razorpay_key_secret', platform_razorpay_key_secret || ''),
+    setPlatformSetting('platform_razorpay_webhook_secret', platform_razorpay_webhook_secret || ''),
     setPlatformSetting('platform_whatsapp_token', platform_whatsapp_token || ''),
     setPlatformSetting('platform_waba_id', platform_waba_id || ''),
     setPlatformSetting('platform_shared_phone_id', platform_shared_phone_id || '')
   ]);
   clearPlatformCache();
   res.redirect('/superadmin/settings?saved=1');
+});
+
+// ============================================================
+// VENDOR WALLET (platform-gateway online payments)
+// ============================================================
+
+// List wallet transactions across all vendors, with vendor/status/date filters
+router.get('/wallet', async (req, res) => {
+  const { vendor_id, status, from, to } = req.query;
+  let where = '1=1';
+  const params = [];
+  if (vendor_id) { where += ' AND w.vendor_id = ?'; params.push(vendor_id); }
+  if (status === 'pending' || status === 'settled') { where += ' AND w.settlement_status = ?'; params.push(status); }
+  if (from) { where += ' AND DATE(w.created_at) >= ?'; params.push(from); }
+  if (to) { where += ' AND DATE(w.created_at) <= ?'; params.push(to); }
+
+  const [rows] = await db.query(
+    `SELECT w.*, v.name as vendor_name
+     FROM vendor_wallet_transactions w
+     JOIN vendors v ON v.id = w.vendor_id
+     WHERE ${where}
+     ORDER BY w.id DESC LIMIT 500`,
+    params
+  );
+
+  const [[totals]] = await db.query(
+    `SELECT
+       SUM(amount) as total_amount,
+       SUM(CASE WHEN settlement_status='pending' THEN amount ELSE 0 END) as pending_amount,
+       SUM(CASE WHEN settlement_status='settled' THEN amount ELSE 0 END) as settled_amount
+     FROM vendor_wallet_transactions w WHERE ${where}`,
+    params
+  );
+
+  const [vendors] = await db.query("SELECT id, name FROM vendors WHERE payment_gateway_mode='platform' ORDER BY name");
+
+  res.render('superadmin/views/wallet', { rows, totals, vendors, query: req.query });
+});
+
+// Mark one transaction settled/pending
+router.post('/wallet/:id/settle', async (req, res) => {
+  const status = req.body.settlement_status === 'pending' ? 'pending' : 'settled';
+  await db.query(
+    `UPDATE vendor_wallet_transactions
+     SET settlement_status=?, settled_at=${status === 'settled' ? 'NOW()' : 'NULL'}
+     WHERE id=?`,
+    [status, req.params.id]
+  );
+  res.redirect('back');
+});
+
+// Bulk-settle all pending transactions for a vendor
+router.post('/wallet/settle-all', async (req, res) => {
+  const { vendor_id } = req.body;
+  if (vendor_id) {
+    await db.query(
+      "UPDATE vendor_wallet_transactions SET settlement_status='settled', settled_at=NOW() WHERE vendor_id=? AND settlement_status='pending'",
+      [vendor_id]
+    );
+  }
+  res.redirect('back');
 });
 
 // ============================================================

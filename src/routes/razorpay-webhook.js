@@ -3,8 +3,9 @@ const router = express.Router();
 const crypto = require('crypto');
 const db = require('../config/db');
 const { getSetting } = require('../helpers/settings');
+const { getPlatformSetting } = require('../helpers/platformSettings');
 const { sendWhatsApp } = require('../helpers/whatsapp');
-const { getBillUrl } = require('../helpers/payment');
+const { getBillUrl, getPaymentGatewayMode } = require('../helpers/payment');
 const { notifyRestaurant } = require('../helpers/order');
 const { isFeatureEnabled } = require('../helpers/store');
 
@@ -17,7 +18,13 @@ router.post('/', async (req, res) => {
     const vendorId = payload?.payload?.payment?.entity?.notes?.vendor_id || payload?.payload?.payment_link?.entity?.notes?.vendor_id;
     if (!vendorId) return res.sendStatus(200);
 
-    const webhookSecret = await getSetting('razorpay_webhook_secret', vendorId);
+    // Pick the right webhook secret to validate against — depends on whether this
+    // vendor's online payments go through FoodBot's platform Razorpay account or
+    // their own.
+    const gatewayMode = await getPaymentGatewayMode(vendorId);
+    const webhookSecret = gatewayMode === 'platform'
+      ? await getPlatformSetting('platform_razorpay_webhook_secret')
+      : await getSetting('razorpay_webhook_secret', vendorId);
     if (webhookSecret) {
       const expected = crypto.createHmac('sha256', webhookSecret).update(body).digest('hex');
       if (expected !== signature) return res.sendStatus(400);
@@ -38,6 +45,18 @@ router.post('/', async (req, res) => {
     if (order.payment_status === 'paid') return res.sendStatus(200);
 
     await db.query("UPDATE orders SET payment_status='paid', order_status='confirmed' WHERE id=?", [order.id]);
+
+    // If this vendor's online payments go through FoodBot's platform Razorpay account,
+    // the money landed in the platform's account, not the vendor's — log it to the
+    // vendor's wallet so they can see (and the super admin can settle) it later.
+    if (gatewayMode === 'platform') {
+      await db.query(
+        `INSERT INTO vendor_wallet_transactions (vendor_id, order_id, order_number, amount)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE amount = amount`,
+        [vendorId, order.id, order.order_number, order.total]
+      );
+    }
 
     // Send bill
     const billEnabled = await isFeatureEnabled('bill_generation', vendorId);

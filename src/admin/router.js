@@ -37,6 +37,17 @@ router.use(async (req, res, next) => {
   next();
 });
 
+// Inject payment_gateway_mode into res.locals so the sidebar can show/hide "Wallet"
+router.use(async (req, res, next) => {
+  try {
+    const [[row]] = await db.query('SELECT payment_gateway_mode FROM vendors WHERE id=?', [req.session.vendorId]);
+    res.locals.paymentGatewayMode = row?.payment_gateway_mode || 'own';
+  } catch (_) {
+    res.locals.paymentGatewayMode = 'own';
+  }
+  next();
+});
+
 // Helper to get enabled features for nav
 async function getFeatures(vendorId) {
   const [rows] = await db.query('SELECT feature_key, is_enabled FROM vendor_features WHERE vendor_id = ?', [vendorId]);
@@ -415,7 +426,9 @@ router.get('/settings', async (req, res) => {
   const vendorId = req.session.vendorId;
   const features = await getFeatures(vendorId);
   const settings = await getSettings(vendorId);
-  res.render('admin/views/settings', { settings, features, vendorId, query: req.query });
+  const [[vendorRow]] = await db.query('SELECT payment_gateway_mode FROM vendors WHERE id=?', [vendorId]);
+  const paymentGatewayMode = vendorRow?.payment_gateway_mode || 'own';
+  res.render('admin/views/settings', { settings, features, vendorId, paymentGatewayMode, query: req.query });
 });
 
 router.post('/settings', async (req, res) => {
@@ -431,6 +444,33 @@ router.post('/settings', async (req, res) => {
   }
   clearCache(vendorId);
   res.redirect('/admin/settings?saved=1');
+});
+
+// --- WALLET (only meaningful for vendors on payment_gateway_mode='platform') ---
+router.get('/wallet', async (req, res) => {
+  const vendorId = req.session.vendorId;
+  const features = await getFeatures(vendorId);
+
+  const { from, to } = req.query;
+  let where = 'vendor_id = ?';
+  const params = [vendorId];
+  if (from) { where += ' AND DATE(created_at) >= ?'; params.push(from); }
+  if (to) { where += ' AND DATE(created_at) <= ?'; params.push(to); }
+
+  const [rows] = await db.query(
+    `SELECT * FROM vendor_wallet_transactions WHERE ${where} ORDER BY id DESC LIMIT 500`,
+    params
+  );
+  const [[totals]] = await db.query(
+    `SELECT
+       SUM(amount) as total_amount,
+       SUM(CASE WHEN settlement_status='pending' THEN amount ELSE 0 END) as pending_amount,
+       SUM(CASE WHEN settlement_status='settled' THEN amount ELSE 0 END) as settled_amount
+     FROM vendor_wallet_transactions WHERE ${where}`,
+    params
+  );
+
+  res.render('admin/views/wallet', { rows, totals, features, query: req.query });
 });
 
 // --- STORE HOURS ---

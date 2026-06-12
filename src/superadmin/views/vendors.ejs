@@ -37,7 +37,8 @@ input:focus{border-color:#6366f1}
 <body>
 <div class="top">
   <h1>👑 Super Admin</h1>
-  <div><a href="/superadmin">Dashboard</a><a href="/superadmin/vendors">Vendors</a><a href="/superadmin/plans">Plans</a><a href="/superadmin/templates">Templates</a><a href="/superadmin/settings">Settings</a><a href="/superadmin/logout">Logout</a></div>
+  <div><a href="/superadmin">Dashboard</a><a href="/superadmin/vendors">Vendors</a>
+    <a href="/superadmin/wallet">Wallet</a><a href="/superadmin/plans">Plans</a><a href="/superadmin/templates">Templates</a><a href="/superadmin/settings">Settings</a><a href="/superadmin/logout">Logout</a></div>
 </div>
 <div class="main">
   <div class="page-header">
@@ -50,7 +51,7 @@ input:focus{border-color:#6366f1}
 
   <div class="card">
     <table>
-      <thead><tr><th>ID</th><th>Restaurant Name</th><th>Email</th><th>Status</th><th>Messages</th><th>Plan</th><th>📢 Credits</th><th>Created</th><th>Actions</th></tr></thead>
+      <thead><tr><th>ID</th><th>Restaurant Name</th><th>Email</th><th>Status</th><th>Messages</th><th>Plan</th><th>📢 Credits</th><th>💳 Payment Gateway</th><th>Created</th><th>Actions</th></tr></thead>
       <tbody>
       <% vendors.forEach(v => { %>
         <% const sub = v.sub; %>
@@ -83,6 +84,17 @@ input:focus{border-color:#6366f1}
             <button class="btn btn-ghost" style="padding:3px 8px;font-size:11px;margin-left:4px"
               onclick="openAddCredits(<%= v.id %>,'<%= v.name %>')">+ Add</button>
           </td>
+          <td>
+            <form method="POST" action="/superadmin/vendors/<%= v.id %>/payment-mode" onchange="this.submit()">
+              <select name="payment_gateway_mode" style="padding:4px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;font-family:inherit">
+                <option value="platform" <%= v.payment_gateway_mode==='platform'?'selected':'' %>>🟢 FoodBot Gateway</option>
+                <option value="own" <%= v.payment_gateway_mode==='own'?'selected':'' %>>🏪 Vendor's Own</option>
+              </select>
+            </form>
+            <% if(v.payment_gateway_mode==='platform'){ %>
+              <a href="/superadmin/wallet?vendor_id=<%= v.id %>" style="font-size:11px;color:#6366f1;display:inline-block;margin-top:4px">💰 View Wallet</a>
+            <% } %>
+          </td>
           <td style="color:#6b7280;font-size:12px"><%= new Date(v.created_at).toLocaleDateString('en-IN') %></td>
           <td style="display:flex;gap:6px;flex-wrap:wrap">
             <a href="/superadmin/vendors/<%= v.id %>/features" class="btn btn-ghost">⚙️ Features</a>
@@ -94,7 +106,7 @@ input:focus{border-color:#6366f1}
         </tr>
       <% }) %>
       <% if(!vendors.length){ %>
-        <tr><td colspan="8" style="text-align:center;padding:32px;color:#6b7280">No vendors yet.</td></tr>
+        <tr><td colspan="10" style="text-align:center;padding:32px;color:#6b7280">No vendors yet.</td></tr>
       <% } %>
       </tbody>
     </table>
@@ -111,6 +123,17 @@ input:focus{border-color:#6366f1}
       <div class="form-group"><label>Email</label><input type="email" name="email" required placeholder="owner@restaurant.com"></div>
       <div class="form-group"><label>Password</label><input type="password" name="password" required placeholder="Min 8 characters" minlength="6"></div>
       <div class="form-group"><label>Trial Messages</label><input type="number" name="trial_messages" value="50" min="0" placeholder="e.g. 50"></div>
+      <div class="form-group">
+        <label>Payment Gateway (Online Orders)</label>
+        <select name="payment_gateway_mode" style="width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-family:inherit;font-size:13px">
+          <option value="platform" selected>🟢 FoodBot Gateway (recommended — vendor ki keys ki zaroorat nahi)</option>
+          <option value="own">🏪 Vendor's Own Razorpay Keys</option>
+        </select>
+        <div style="font-size:11px;color:#6b7280;margin-top:3px">
+          FoodBot Gateway: payment FoodBot ke Razorpay account mein aayega, vendor "Wallet" tab mein dekh sakega.<br>
+          Vendor's Own: vendor apni Razorpay keys /admin/settings mein save karega, payment seedha unke account mein aayega.
+        </div>
+      </div>
       <button type="submit" class="btn btn-indigo" style="width:100%;padding:10px;font-size:14px">Create Vendor</button>
     </form>
   </div>

@@ -145,10 +145,20 @@ ${locals.query && locals.query.saved ? '<div class="alert alert-success">✅ Set
       <div class="form-group"><label>Online Payment Enabled</label>
         <select name="online_payment_enabled" class="form-control"><option value="1" ${s('online_payment_enabled')==='1'?'selected':''}>Yes</option><option value="0" ${s('online_payment_enabled')!=='1'?'selected':''}>No</option></select>
       </div>
+    </div>
+    ${locals.paymentGatewayMode === 'platform' ? `
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px;font-size:12px;color:#166534;margin-top:12px">
+      ✅ Aapke online payments <strong>FoodBot ke gateway</strong> se process ho rahe hain — Razorpay keys set karne ki
+      zaroorat nahi. Kitna online payment aaya, ye <a href="/admin/wallet" style="color:#166534;font-weight:700;text-decoration:underline">Wallet</a>
+      tab mein dekho.
+    </div>
+    ` : `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
       <div class="form-group"><label>Razorpay Key ID</label><input name="razorpay_key_id" class="form-control" value="${s('razorpay_key_id')}"></div>
       <div class="form-group"><label>Razorpay Key Secret</label><input name="razorpay_key_secret" type="password" class="form-control" value="${s('razorpay_key_secret')}"></div>
       <div class="form-group" style="grid-column:1/-1"><label>Razorpay Webhook Secret</label><input name="razorpay_webhook_secret" class="form-control" value="${s('razorpay_webhook_secret')}"></div>
     </div>
+    `}
   </div>
 
   <div class="card">

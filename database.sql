@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS vendors (
   email VARCHAR(100) NOT NULL UNIQUE,
   password VARCHAR(255) NOT NULL,
   is_active TINYINT(1) DEFAULT 1,
+  -- 'platform' = online payments use FoodBot's (platform) Razorpay gateway;
+  -- 'own' = vendor uses their own Razorpay keys (saved in /admin/settings).
+  payment_gateway_mode ENUM('platform','own') NOT NULL DEFAULT 'platform',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -388,4 +391,33 @@ CREATE TABLE IF NOT EXISTS conversation_windows (
   window_opened_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (vendor_id, phone),
   FOREIGN KEY (vendor_id) REFERENCES vendors(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- 19. platform_settings  (super-admin / platform-level key-value config,
+--     e.g. shared WhatsApp token, platform Razorpay keys for vendors on
+--     payment_gateway_mode='platform')
+-- ============================================================
+CREATE TABLE IF NOT EXISTS platform_settings (
+  setting_key VARCHAR(100) NOT NULL PRIMARY KEY,
+  setting_value TEXT,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- 20. vendor_wallet_transactions  (online payments received via the PLATFORM
+--     Razorpay gateway, for vendors with payment_gateway_mode='platform')
+-- ============================================================
+CREATE TABLE IF NOT EXISTS vendor_wallet_transactions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  vendor_id INT NOT NULL,
+  order_id INT NOT NULL,
+  order_number VARCHAR(40),
+  amount DECIMAL(10,2) NOT NULL,
+  settlement_status ENUM('pending','settled') NOT NULL DEFAULT 'pending',
+  settled_at TIMESTAMP NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (vendor_id) REFERENCES vendors(id) ON DELETE CASCADE,
+  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+  UNIQUE KEY uniq_wallet_order (order_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
