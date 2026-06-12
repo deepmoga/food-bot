@@ -1,6 +1,6 @@
 const db = require('../config/db');
 const { getSetting } = require('./settings');
-const { sendWhatsApp, getCustomerMessagingVendorId } = require('./whatsapp');
+const { sendWhatsApp } = require('./whatsapp');
 const { cartTotal } = require('./gst');
 const { createBillToken, getBillUrl } = require('./payment');
 
@@ -15,21 +15,21 @@ async function generateOrderNumber(vendorId) {
   return `ORD-${today}-${seq}`;
 }
 
-async function createOrder(session, cart, breakdown, vendorId) {
+async function createOrder(session, cart, breakdown, vendorId, msgVendorId = null) {
   const orderNumber = await generateOrderNumber(vendorId);
   const now = new Date();
   const billToken = createBillToken(orderNumber, orderNumber, now.toISOString());
 
   const [result] = await db.query(
     `INSERT INTO orders
-      (vendor_id, order_number, phone, customer_name, customer_phone, items,
+      (vendor_id, msg_vendor_id, order_number, phone, customer_name, customer_phone, items,
        subtotal, discount_amount, delivery_charge, gst_amount, total,
        payment_method, payment_status, order_status,
        delivery_address, customer_lat, customer_lng, distance_km,
        coupon_code, bill_token)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
-      vendorId, orderNumber, session.phone, session.customer_name, session.customer_phone,
+      vendorId, msgVendorId || vendorId, orderNumber, session.phone, session.customer_name, session.customer_phone,
       JSON.stringify(cart),
       breakdown.subtotal, breakdown.discount, breakdown.delivery, breakdown.gst, breakdown.total,
       session.payment_method,
@@ -96,7 +96,7 @@ async function sendReviewRequests() {
     const msg =
       `Hi ${order.customer_name || 'there'}! 🙏 Thank you for your order *#${order.order_number}*.\n\n` +
       `We'd love to hear your feedback! Please take a moment to rate us:\n${order.review_link}`;
-    const msgVendorId = await getCustomerMessagingVendorId(order.phone, order.vendor_id);
+    const msgVendorId = order.msg_vendor_id || order.vendor_id;
     await sendWhatsApp(order.phone, msg, msgVendorId);
     await db.query('UPDATE orders SET review_sent = 1 WHERE id = ?', [order.id]);
   }

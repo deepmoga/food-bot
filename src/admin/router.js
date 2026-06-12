@@ -4,7 +4,7 @@ const bcrypt = require('bcrypt');
 const db = require('../config/db');
 const { requireAuth } = require('./middleware/auth');
 const { isFeatureEnabled } = require('../helpers/store');
-const { sendWhatsApp, getCustomerMessagingVendorId } = require('../helpers/whatsapp');
+const { sendWhatsApp } = require('../helpers/whatsapp');
 const { sendDeliveryAssignment } = require('../helpers/delivery');
 const { cartTotal } = require('../helpers/gst');
 const { saveSetting, getSettings } = require('../helpers/settings');
@@ -111,7 +111,7 @@ router.post('/api/update-status', async (req, res) => {
 
   await db.query('UPDATE orders SET order_status = ? WHERE id = ?', [status, order_id]);
 
-  const msgVendorId = await getCustomerMessagingVendorId(order.phone, vendorId);
+  const msgVendorId = order.msg_vendor_id || vendorId;
 
   // Send WhatsApp template
   const [msgRows] = await db.query(

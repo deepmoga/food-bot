@@ -23,7 +23,11 @@ async function placeOrder(phone, vendorId) {
   const delivery = parseFloat(session.delivery_charge) || 0;
   const breakdown = await orderBreakdown(cart, discount, delivery, activeVendorId, session.pending_coupon);
 
-  const order = await createOrder(session, cart, breakdown, activeVendorId);
+  // vendorId here is the inbound number's vendor (e.g. shared platform directory number
+  // for directory-mode customers) — persisted so future notifications (status updates,
+  // bills, reviews) keep using the SAME number the customer's conversation is open with,
+  // even after resetSession() clears session.selected_vendor_id.
+  const order = await createOrder(session, cart, breakdown, activeVendorId, vendorId);
 
   // Record coupon usage
   if (session.pending_coupon && session.pending_discount > 0) {

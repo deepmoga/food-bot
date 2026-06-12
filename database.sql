@@ -115,6 +115,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE TABLE IF NOT EXISTS orders (
   id INT AUTO_INCREMENT PRIMARY KEY,
   vendor_id INT NOT NULL,
+  msg_vendor_id INT NULL,
   order_number VARCHAR(20) NOT NULL UNIQUE,
   phone VARCHAR(20) NOT NULL,
   customer_name VARCHAR(100),

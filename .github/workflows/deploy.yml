@@ -27,6 +27,9 @@ jobs:
           # Pull latest code
           git pull origin main
 
+          # Run DB migrations (idempotent — safe on every deploy)
+          mysql -u foodbot -p'FoodBot@2024' food_bot < migrate_msg_vendor_id.sql
+
           # Install production dependencies
           npm install --production
 

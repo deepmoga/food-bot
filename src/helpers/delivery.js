@@ -1,5 +1,5 @@
 const db = require('../config/db');
-const { sendWhatsApp, sendButtonMessage, getCustomerMessagingVendorId } = require('./whatsapp');
+const { sendWhatsApp, sendButtonMessage } = require('./whatsapp');
 const { getSetting } = require('./settings');
 const { cartSummary } = require('./order');
 const { getBillUrl } = require('./payment');
@@ -56,7 +56,7 @@ async function handleDeliveryConfirmed(deliveryPhone, orderId, vendorId) {
     `Thank you for ordering! We hope you enjoy your meal. 🙏` +
     (billUrl ? `\n\n🧾 *Your Bill:* ${billUrl}` : '') +
     (reviewLink ? `\n\n⭐ *Rate us:* ${reviewLink}` : '');
-  const customerMsgVendorId = await getCustomerMessagingVendorId(order.phone, vendorId);
+  const customerMsgVendorId = order.msg_vendor_id || vendorId;
   await sendWhatsApp(order.phone, customerMsg, customerMsgVendorId);
 
   const adminPhone = await getSetting('restaurant_phone', vendorId);
