@@ -118,6 +118,15 @@ input:focus,textarea:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102
           "FoodBot Gateway" vendors ke order-payment webhook iss secret se verify honge.
         </div>
       </div>
+      <div class="form-group">
+        <label>Commission % (FoodBot Gateway orders)</label>
+        <input type="number" name="platform_commission_percent" value="<%= commissionPercent || '0' %>" min="0" max="100" step="0.01" placeholder="e.g. 2">
+        <div class="hint">
+          Jab vendor "FoodBot Gateway" mode mein ho aur online payment aaye, to isme se yeh % FoodBot ka commission
+          kat jayega — baaki amount (net) vendor ko wallet mein "payable" dikhega aur usi par payout calculate hoga.
+          0 rakho to koi deduction nahi hoga.
+        </div>
+      </div>
     </div>
 
     <button type="submit" class="btn btn-indigo" style="width:100%;padding:12px;font-size:14px;justify-content:center">

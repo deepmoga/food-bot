@@ -32,6 +32,7 @@ jobs:
           mysql -u foodbot -p'FoodBot@2024' food_bot < migrate_order_number_length.sql
           mysql -u foodbot -p'FoodBot@2024' food_bot < migrate_payment_gateway_wallet.sql
           mysql -u foodbot -p'FoodBot@2024' food_bot < migrate_wallet_settlements.sql
+          mysql -u foodbot -p'FoodBot@2024' food_bot < migrate_wallet_commission.sql
 
           # Install production dependencies
           npm install --production

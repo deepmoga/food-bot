@@ -15,7 +15,11 @@ const body = `
 </div>
 
 <div class="stats-grid">
-  <div class="stat-card"><div class="label">Total Online Payments</div><div class="value">₹${Number(totals.total_amount || 0).toLocaleString('en-IN')}</div></div>
+  <div class="stat-card"><div class="label">Total Online Payments (Gross)</div><div class="value">₹${Number(totals.total_amount || 0).toLocaleString('en-IN')}</div></div>
+  <div class="stat-card"><div class="label">Commission Deducted</div><div class="value" style="color:#6366f1">₹${Number(totals.total_commission || 0).toLocaleString('en-IN')}</div></div>
+  <div class="stat-card"><div class="label">Net Payable to You</div><div class="value">₹${Number(totals.total_net || 0).toLocaleString('en-IN')}</div></div>
+</div>
+<div class="stats-grid">
   <div class="stat-card"><div class="label">Pending Due</div><div class="value" style="color:#d97706">₹${Number(totals.pending_amount || 0).toLocaleString('en-IN')}</div></div>
   <div class="stat-card"><div class="label">Paid to You</div><div class="value" style="color:#16a34a">₹${Number(totals.settled_amount || 0).toLocaleString('en-IN')}</div></div>
 </div>
@@ -55,16 +59,18 @@ const body = `
 <div class="card" style="padding:0">
   <div style="padding:14px 16px 0;font-weight:700;font-size:14px">🧾 Online Order Payments</div>
   <table>
-    <thead><tr><th>Order #</th><th>Amount</th><th>Date</th></tr></thead>
+    <thead><tr><th>Order #</th><th>Amount (Gross)</th><th>Commission</th><th>Net Payable</th><th>Date</th></tr></thead>
     <tbody>
       ${rows.map(r => `
         <tr>
           <td>#${r.order_number}</td>
           <td>₹${Number(r.amount).toLocaleString('en-IN')}</td>
+          <td style="color:#6366f1">₹${Number(r.commission_amount || 0).toLocaleString('en-IN')}</td>
+          <td style="font-weight:600">₹${Number(r.net_amount || r.amount).toLocaleString('en-IN')}</td>
           <td style="color:#6b7280;font-size:12px">${new Date(r.created_at).toLocaleString('en-IN')}</td>
         </tr>
       `).join('')}
-      ${!rows.length ? '<tr><td colspan="3" style="text-align:center;padding:32px;color:#6b7280">Abhi tak koi online payment nahi aaya.</td></tr>' : ''}
+      ${!rows.length ? '<tr><td colspan="5" style="text-align:center;padding:32px;color:#6b7280">Abhi tak koi online payment nahi aaya.</td></tr>' : ''}
     </tbody>
   </table>
 </div>

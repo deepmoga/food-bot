@@ -462,7 +462,8 @@ router.get('/wallet', async (req, res) => {
     params
   );
   const [[totals]] = await db.query(
-    `SELECT SUM(amount) as total_amount FROM vendor_wallet_transactions WHERE ${where}`,
+    `SELECT SUM(amount) as total_amount, SUM(commission_amount) as total_commission, SUM(net_amount) as total_net
+     FROM vendor_wallet_transactions WHERE ${where}`,
     params
   );
 
@@ -482,13 +483,21 @@ router.get('/wallet', async (req, res) => {
   );
 
   const totalAmount = Number(totals.total_amount || 0);
+  const totalCommission = Number(totals.total_commission || 0);
+  const totalNet = Number(totals.total_net || 0);
   const totalSettled = Number(settTotals.total_settled || 0);
-  const pendingAmount = totalAmount - totalSettled;
+  const pendingAmount = totalNet - totalSettled;
 
   res.render('admin/views/wallet', {
     rows,
     settlements,
-    totals: { total_amount: totalAmount, settled_amount: totalSettled, pending_amount: pendingAmount },
+    totals: {
+      total_amount: totalAmount,
+      total_commission: totalCommission,
+      total_net: totalNet,
+      settled_amount: totalSettled,
+      pending_amount: pendingAmount
+    },
     features,
     query: req.query
   });

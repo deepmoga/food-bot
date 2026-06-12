@@ -181,27 +181,32 @@ router.post('/vendors/:id/topup', async (req, res) => {
 // PLATFORM SETTINGS
 router.get('/settings', async (req, res) => {
   const { getPlatformSetting } = require('../helpers/platformSettings');
-  const [rzpKeyId, rzpKeySecret, rzpWebhookSecret, waToken, wabaId, platformSharedPhoneId] = await Promise.all([
+  const [rzpKeyId, rzpKeySecret, rzpWebhookSecret, waToken, wabaId, platformSharedPhoneId, commissionPercent] = await Promise.all([
     getPlatformSetting('platform_razorpay_key_id'),
     getPlatformSetting('platform_razorpay_key_secret'),
     getPlatformSetting('platform_razorpay_webhook_secret'),
     getPlatformSetting('platform_whatsapp_token'),
     getPlatformSetting('platform_waba_id'),
-    getPlatformSetting('platform_shared_phone_id')
+    getPlatformSetting('platform_shared_phone_id'),
+    getPlatformSetting('platform_commission_percent')
   ]);
-  res.render('superadmin/views/settings', { rzpKeyId, rzpKeySecret, rzpWebhookSecret, waToken, wabaId, platformSharedPhoneId, query: req.query });
+  res.render('superadmin/views/settings', { rzpKeyId, rzpKeySecret, rzpWebhookSecret, waToken, wabaId, platformSharedPhoneId, commissionPercent, query: req.query });
 });
 
 router.post('/settings', async (req, res) => {
   const { setPlatformSetting, clearPlatformCache } = require('../helpers/platformSettings');
-  const { platform_razorpay_key_id, platform_razorpay_key_secret, platform_razorpay_webhook_secret, platform_whatsapp_token, platform_waba_id, platform_shared_phone_id } = req.body;
+  const { platform_razorpay_key_id, platform_razorpay_key_secret, platform_razorpay_webhook_secret, platform_whatsapp_token, platform_waba_id, platform_shared_phone_id, platform_commission_percent } = req.body;
+  let commissionPct = parseFloat(platform_commission_percent);
+  if (isNaN(commissionPct) || commissionPct < 0) commissionPct = 0;
+  if (commissionPct > 100) commissionPct = 100;
   await Promise.all([
     setPlatformSetting('platform_razorpay_key_id', platform_razorpay_key_id || ''),
     setPlatformSetting('platform_razorpay_key_secret', platform_razorpay_key_secret || ''),
     setPlatformSetting('platform_razorpay_webhook_secret', platform_razorpay_webhook_secret || ''),
     setPlatformSetting('platform_whatsapp_token', platform_whatsapp_token || ''),
     setPlatformSetting('platform_waba_id', platform_waba_id || ''),
-    setPlatformSetting('platform_shared_phone_id', platform_shared_phone_id || '')
+    setPlatformSetting('platform_shared_phone_id', platform_shared_phone_id || ''),
+    setPlatformSetting('platform_commission_percent', String(commissionPct))
   ]);
   clearPlatformCache();
   res.redirect('/superadmin/settings?saved=1');
@@ -232,7 +237,8 @@ router.get('/wallet', async (req, res) => {
   );
 
   const [[totals]] = await db.query(
-    `SELECT SUM(amount) as total_amount FROM vendor_wallet_transactions w WHERE ${where}`,
+    `SELECT SUM(amount) as total_amount, SUM(commission_amount) as total_commission, SUM(net_amount) as total_net
+     FROM vendor_wallet_transactions w WHERE ${where}`,
     params
   );
 
@@ -258,15 +264,23 @@ router.get('/wallet', async (req, res) => {
   );
 
   const totalAmount = Number(totals.total_amount || 0);
+  const totalCommission = Number(totals.total_commission || 0);
+  const totalNet = Number(totals.total_net || 0);
   const totalSettled = Number(settTotals.total_settled || 0);
-  const pendingAmount = totalAmount - totalSettled;
+  const pendingAmount = totalNet - totalSettled;
 
   const [vendors] = await db.query("SELECT id, name FROM vendors WHERE payment_gateway_mode='platform' ORDER BY name");
 
   res.render('superadmin/views/wallet', {
     rows,
     settlements,
-    totals: { total_amount: totalAmount, settled_amount: totalSettled, pending_amount: pendingAmount },
+    totals: {
+      total_amount: totalAmount,
+      total_commission: totalCommission,
+      total_net: totalNet,
+      settled_amount: totalSettled,
+      pending_amount: pendingAmount
+    },
     vendors,
     query: req.query
   });

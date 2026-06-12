@@ -57,7 +57,11 @@ td{padding:10px 16px;border-bottom:1px solid #f3f4f6;vertical-align:middle}
   </p>
 
   <div class="stats-grid">
-    <div class="stat-card"><div class="label">Total Received</div><div class="value">₹<%= Number(totals.total_amount || 0).toLocaleString('en-IN') %></div></div>
+    <div class="stat-card"><div class="label">Total Received (Gross)</div><div class="value">₹<%= Number(totals.total_amount || 0).toLocaleString('en-IN') %></div></div>
+    <div class="stat-card"><div class="label">Commission Deducted</div><div class="value" style="color:#6366f1">₹<%= Number(totals.total_commission || 0).toLocaleString('en-IN') %></div></div>
+    <div class="stat-card"><div class="label">Net Payable to Vendor</div><div class="value">₹<%= Number(totals.total_net || 0).toLocaleString('en-IN') %></div></div>
+  </div>
+  <div class="stats-grid">
     <div class="stat-card"><div class="label">Pending Due</div><div class="value" style="color:#d97706">₹<%= Number(totals.pending_amount || 0).toLocaleString('en-IN') %></div></div>
     <div class="stat-card"><div class="label">Total Paid Out</div><div class="value" style="color:#16a34a">₹<%= Number(totals.settled_amount || 0).toLocaleString('en-IN') %></div></div>
   </div>
@@ -122,7 +126,7 @@ td{padding:10px 16px;border-bottom:1px solid #f3f4f6;vertical-align:middle}
     <div style="padding:14px 16px 0" class="section-title">🧾 Online Order Payments (Received)</div>
     <div class="table-scroll">
     <table>
-      <thead><tr><th>ID</th><th>Vendor</th><th>Order #</th><th>Amount</th><th>Date</th></tr></thead>
+      <thead><tr><th>ID</th><th>Vendor</th><th>Order #</th><th>Amount (Gross)</th><th>Commission</th><th>Net Payable</th><th>Date</th></tr></thead>
       <tbody>
       <% rows.forEach(r => { %>
         <tr>
@@ -130,11 +134,13 @@ td{padding:10px 16px;border-bottom:1px solid #f3f4f6;vertical-align:middle}
           <td><%= r.vendor_name %></td>
           <td><%= r.order_number %></td>
           <td>₹<%= Number(r.amount).toLocaleString('en-IN') %></td>
+          <td style="color:#6366f1">₹<%= Number(r.commission_amount || 0).toLocaleString('en-IN') %></td>
+          <td style="font-weight:600">₹<%= Number(r.net_amount || r.amount).toLocaleString('en-IN') %></td>
           <td style="color:#6b7280;font-size:12px"><%= new Date(r.created_at).toLocaleString('en-IN') %></td>
         </tr>
       <% }) %>
       <% if(!rows.length){ %>
-        <tr><td colspan="5" style="text-align:center;padding:24px;color:#6b7280">No transactions yet.</td></tr>
+        <tr><td colspan="7" style="text-align:center;padding:24px;color:#6b7280">No transactions yet.</td></tr>
       <% } %>
       </tbody>
     </table>

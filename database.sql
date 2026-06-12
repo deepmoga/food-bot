@@ -404,6 +404,11 @@ CREATE TABLE IF NOT EXISTS platform_settings (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Default commission % deducted on FoodBot-gateway ('platform') online payments
+INSERT INTO platform_settings (setting_key, setting_value)
+VALUES ('platform_commission_percent', '0')
+ON DUPLICATE KEY UPDATE setting_value = setting_value;
+
 -- ============================================================
 -- 20. vendor_wallet_transactions  (online payments received via the PLATFORM
 --     Razorpay gateway, for vendors with payment_gateway_mode='platform')
@@ -414,6 +419,8 @@ CREATE TABLE IF NOT EXISTS vendor_wallet_transactions (
   order_id INT NOT NULL,
   order_number VARCHAR(40),
   amount DECIMAL(10,2) NOT NULL,
+  commission_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
+  net_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
   settlement_status ENUM('pending','settled') NOT NULL DEFAULT 'pending',
   settled_at TIMESTAMP NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

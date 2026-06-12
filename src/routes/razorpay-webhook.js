@@ -50,11 +50,17 @@ router.post('/', async (req, res) => {
     // the money landed in the platform's account, not the vendor's — log it to the
     // vendor's wallet so they can see (and the super admin can settle) it later.
     if (gatewayMode === 'platform') {
+      // Deduct platform commission (configured by superadmin) — vendor's payout
+      // is the net amount (order total minus commission).
+      const commissionPct = parseFloat(await getPlatformSetting('platform_commission_percent')) || 0;
+      const amount = parseFloat(order.total);
+      const commissionAmount = Math.round(amount * commissionPct) / 100;
+      const netAmount = Math.round((amount - commissionAmount) * 100) / 100;
       await db.query(
-        `INSERT INTO vendor_wallet_transactions (vendor_id, order_id, order_number, amount)
-         VALUES (?, ?, ?, ?)
+        `INSERT INTO vendor_wallet_transactions (vendor_id, order_id, order_number, amount, commission_amount, net_amount)
+         VALUES (?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE amount = amount`,
-        [vendorId, order.id, order.order_number, order.total]
+        [vendorId, order.id, order.order_number, amount, commissionAmount, netAmount]
       );
     }
 
