@@ -41,21 +41,6 @@ app.get('/test/last-messages', async (req, res) => {
   }
 });
 
-// ===== TEMP DEBUG ENDPOINT — remove after verification =====
-app.get('/test/order-check', async (req, res) => {
-  try {
-    const [cols] = await db.query(
-      "SELECT COLUMN_NAME, COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders' AND COLUMN_NAME IN ('order_number', 'msg_vendor_id')"
-    );
-    const [orders] = await db.query(
-      "SELECT id, vendor_id, msg_vendor_id, order_number, delivery_address, created_at FROM orders ORDER BY id DESC LIMIT 5"
-    );
-    res.json({ cols, orders });
-  } catch (e) {
-    res.json({ error: e.message });
-  }
-});
-
 // Routes
 app.use('/webhook', require('./src/webhook/index'));
 app.use('/admin', require('./src/admin/router'));
