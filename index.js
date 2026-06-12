@@ -22,6 +22,18 @@ app.use(session({
 
 // ===== TEST ENDPOINT — Dev only =====
 const db = require('./src/config/db');
+app.get('/test/schema-check', async (req, res) => {
+  try {
+    const [cols] = await db.query(
+      "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders' AND COLUMN_NAME = 'msg_vendor_id'"
+    );
+    const [sample] = await db.query("SELECT id, vendor_id, msg_vendor_id FROM orders ORDER BY id DESC LIMIT 3");
+    res.json({ hasColumn: cols.length > 0, sample });
+  } catch (e) {
+    res.json({ error: e.message });
+  }
+});
+
 app.get('/test/last-messages', async (req, res) => {
   const { phone } = req.query;
   if (!phone) return res.json([]);
