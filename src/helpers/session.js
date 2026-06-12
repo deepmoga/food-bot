@@ -17,11 +17,24 @@ async function getSession(phone, vendorId, profileName = null) {
     }
     return s;
   }
-  // Create new session
+  // Create new session.
+  // Use INSERT IGNORE — WhatsApp Cloud API sometimes delivers the same webhook event
+  // twice in quick succession. Without IGNORE, the second concurrent INSERT would
+  // throw a duplicate-key error on the (phone, vendor_id) primary key, which bubbles
+  // up uncaught and the customer silently gets no reply at all.
   await db.query(
-    'INSERT INTO sessions (phone, vendor_id, state, cart, customer_name) VALUES (?, ?, "WELCOME", "[]", ?)',
+    'INSERT IGNORE INTO sessions (phone, vendor_id, state, cart, customer_name) VALUES (?, ?, "WELCOME", "[]", ?)',
     [phone, vendorId, profileName]
   );
+  const [existing] = await db.query(
+    'SELECT * FROM sessions WHERE phone = ? AND vendor_id = ?',
+    [phone, vendorId]
+  );
+  if (existing.length > 0) {
+    const s = existing[0];
+    s.cart = s.cart || [];
+    return s;
+  }
   return { phone, vendor_id: vendorId, state: 'WELCOME', cart: [], customer_name: profileName };
 }
 

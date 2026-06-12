@@ -5,6 +5,27 @@ const db = require('../config/db');
 
 const BASE_URL = 'https://graph.facebook.com/v18.0';
 
+// Shared POST helper with a timeout + single retry on timeout/network errors.
+// Without a timeout, a slow/unresponsive Graph API call can hang forever and the
+// customer never gets a reply ("stuck") even though nothing technically "errors".
+async function postToGraph(phoneId, token, payload) {
+  const url = `${BASE_URL}/${phoneId}/messages`;
+  const config = {
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    timeout: 15000
+  };
+  try {
+    return await axios.post(url, payload, config);
+  } catch (e) {
+    const isTimeoutOrNetwork = !e.response && (e.code === 'ECONNABORTED' || e.code === 'ETIMEDOUT' || e.code === 'ECONNRESET' || e.message?.includes('timeout'));
+    if (isTimeoutOrNetwork) {
+      // One retry — transient network hiccups with Meta's Graph API are common.
+      return await axios.post(url, payload, config);
+    }
+    throw e;
+  }
+}
+
 async function getWAConfig(vendorId) {
   const platformVendorIdStr = await getPlatformSetting('platform_vendor_id');
   const platformVendorId = platformVendorIdStr ? parseInt(platformVendorIdStr) : null;
@@ -28,10 +49,8 @@ async function getWAConfig(vendorId) {
 async function sendWhatsApp(to, text, vendorId) {
   const { token, phoneId } = await getWAConfig(vendorId);
   try {
-    await axios.post(
-      `${BASE_URL}/${phoneId}/messages`,
-      { messaging_product: 'whatsapp', to, type: 'text', text: { body: text, preview_url: false } },
-      { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+    await postToGraph(phoneId, token,
+      { messaging_product: 'whatsapp', to, type: 'text', text: { body: text, preview_url: false } }
     );
     await logMessage(to, 'out', text, vendorId);
   } catch (e) {
@@ -55,10 +74,8 @@ async function sendButtonMessage(to, body, buttons, vendorId, header = null, foo
   if (footer) interactive.footer = { text: footer };
 
   try {
-    await axios.post(
-      `${BASE_URL}/${phoneId}/messages`,
-      { messaging_product: 'whatsapp', to, type: 'interactive', interactive },
-      { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+    await postToGraph(phoneId, token,
+      { messaging_product: 'whatsapp', to, type: 'interactive', interactive }
     );
     await logMessage(to, 'out', `[BUTTONS] ${body}`, vendorId);
   } catch (e) {
@@ -77,10 +94,8 @@ async function sendListMessage(to, header, body, footer, buttonLabel, sections, 
   };
 
   try {
-    await axios.post(
-      `${BASE_URL}/${phoneId}/messages`,
-      { messaging_product: 'whatsapp', to, type: 'interactive', interactive },
-      { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+    await postToGraph(phoneId, token,
+      { messaging_product: 'whatsapp', to, type: 'interactive', interactive }
     );
     await logMessage(to, 'out', `[LIST] ${header}`, vendorId);
   } catch (e) {
@@ -92,20 +107,16 @@ async function sendListMessage(to, header, body, footer, buttonLabel, sections, 
 async function sendLocationRequest(to, bodyText, vendorId) {
   const { token, phoneId } = await getWAConfig(vendorId);
   try {
-    await axios.post(
-      `${BASE_URL}/${phoneId}/messages`,
-      {
-        messaging_product: 'whatsapp',
-        to,
-        type: 'interactive',
-        interactive: {
-          type: 'location_request_message',
-          body: { text: bodyText },
-          action: { name: 'send_location' }
-        }
-      },
-      { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
-    );
+    await postToGraph(phoneId, token, {
+      messaging_product: 'whatsapp',
+      to,
+      type: 'interactive',
+      interactive: {
+        type: 'location_request_message',
+        body: { text: bodyText },
+        action: { name: 'send_location' }
+      }
+    });
     await logMessage(to, 'out', '[LOCATION REQUEST]', vendorId);
   } catch (e) {
     // Fallback if location_request_message not supported
