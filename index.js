@@ -49,6 +49,7 @@ app.use('/superadmin', require('./src/superadmin/router'));
 app.use('/bill', require('./src/routes/bill'));
 app.use('/razorpay-webhook', require('./src/routes/razorpay-webhook'));
 app.use('/payment-callback', require('./src/routes/payment-callback'));
+app.use('/api', require('./src/api'));
 
 // Review cron — har 5 minute check karo
 cron.schedule('*/5 * * * *', async () => {
@@ -61,6 +62,12 @@ cron.schedule('*/5 * * * *', async () => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+const http = require('http');
+const server = http.createServer(app);
+const { setupSocket } = require('./src/socket');
+const io = setupSocket(server);
+app.set('io', io);
+
+server.listen(PORT, () => {
   console.log(`🚀 Food Bot running on port ${PORT}`);
 });

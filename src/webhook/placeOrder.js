@@ -8,6 +8,25 @@ const { getSetting } = require('../helpers/settings');
 const { isFeatureEnabled } = require('../helpers/store');
 const db = require('../config/db');
 
+function emitNewOrder(activeVendorId, order, cart, breakdown, session) {
+  try {
+    const io = require('../socket').io;
+    if (io) {
+      io.to(`vendor_${activeVendorId}`).emit('new_order', {
+        id: order.id,
+        order_number: order.order_number,
+        customer_name: session.customer_name,
+        customer_phone: session.customer_phone,
+        items: cart,
+        total: breakdown.total,
+        payment_method: session.payment_method,
+        delivery_address: session.temp_address,
+        created_at: new Date().toISOString()
+      });
+    }
+  } catch (_) {}
+}
+
 async function placeOrder(phone, vendorId) {
   const session = await getSession(phone, vendorId);
   const activeVendorId = session.selected_vendor_id || vendorId;
@@ -76,6 +95,8 @@ async function placeOrder(phone, vendorId) {
       total: breakdown.total
     }, activeVendorId);
 
+    emitNewOrder(activeVendorId, order, cart, breakdown, session);
+
   } else {
     // Online payment
     try {
@@ -105,6 +126,8 @@ async function placeOrder(phone, vendorId) {
         payment_method: 'online',
         total: breakdown.total
       }, activeVendorId);
+
+      emitNewOrder(activeVendorId, order, cart, breakdown, session);
     } catch (e) {
       console.error('[placeOrder] Razorpay error:', e.message);
       await sendWhatsApp(phone, '❌ Payment link generate karne mein error aaya. Please contact us.', vendorId);
