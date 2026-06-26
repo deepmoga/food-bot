@@ -1,6 +1,9 @@
 const express = require('express');
+const cors = require('cors');
 const router = express.Router();
 const { authMiddleware } = require('./middleware');
+
+router.use(cors());
 
 router.use('/auth', require('./auth'));
 
