@@ -8,7 +8,18 @@ const { getSetting } = require('../helpers/settings');
 const { isFeatureEnabled } = require('../helpers/store');
 const db = require('../config/db');
 
-function emitNewOrder(activeVendorId, order, cart, breakdown, session) {
+async function emitNewOrder(activeVendorId, order, cart, breakdown, session) {
+  try {
+    const { sendPushToVendor } = require('../helpers/pushNotification');
+    const itemsText = cart.map(i => `${i.name} x${i.qty}`).join(', ');
+    await sendPushToVendor(
+      activeVendorId,
+      `🔔 New Order #${order.order_number}`,
+      `${session.customer_name} — ₹${breakdown.total} (${itemsText})`,
+      { orderId: order.id, type: 'new_order' }
+    );
+  } catch (_) {}
+
   try {
     const io = require('../socket').io;
     if (io) {
